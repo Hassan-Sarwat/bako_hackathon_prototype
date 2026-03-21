@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Settings, BarChart2, Briefcase, Wrench, ClipboardCheck, Mic } from 'lucide-react';
 
 const shortcuts = [
@@ -8,6 +8,8 @@ const shortcuts = [
 ];
 
 const App = () => {
+  const [active, setActive] = useState(false);
+
   return (
     <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center p-6 font-sans text-[#4A3728]">
       {/* Header */}
@@ -62,13 +64,18 @@ const App = () => {
 
       {/* Voice Interface */}
       <div className="flex-1 flex flex-col items-center justify-center w-full">
-        <button className="group relative">
+        <button 
+          className="group relative"
+          onClick={() => setActive(!active)}
+        >
           {/* Glow Effect */}
-          <div className="absolute inset-0 bg-[#5D4037] opacity-20 blur-3xl rounded-full scale-125"></div>
+          <div className={`absolute inset-0 bg-[#5D4037] opacity-20 blur-3xl rounded-full transition-all duration-500 ${active ? 'scale-150 opacity-40' : 'scale-125'}`}></div>
           
-          <div className="relative w-48 h-48 bg-[#5D4037] rounded-full flex flex-col items-center justify-center text-white shadow-2xl transition-transform active:scale-95 p-4">
+          <div className={`relative w-48 h-48 bg-[#5D4037] rounded-full flex flex-col items-center justify-center text-white shadow-2xl transition-all duration-300 active:scale-95 p-4 ${active ? 'animate-pulse shadow-[0_0_50px_rgba(40,0,200,0.6)]' : ''}`}>
             <Mic size={40} className="mb-4" strokeWidth={2.5} />
-            <span className="text-sm font-bold uppercase tracking-wider">Halten zum Sprechen</span>
+            <span className="text-sm font-bold uppercase tracking-wider">
+              {active ? 'Zuhören...' : 'Halten zum Sprechen'}
+            </span>
           </div>
         </button>
 
