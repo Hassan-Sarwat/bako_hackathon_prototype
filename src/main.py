@@ -6,6 +6,7 @@ runs alongside the API server.
 """
 
 from contextlib import asynccontextmanager
+from datetime import date
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
@@ -61,6 +62,69 @@ class RaiseTicketRequest(BaseModel):
     description: str
     category: str
     urgency: str = "normal"
+
+
+class ScheduleRequest(BaseModel):
+    employee_name: str
+    schedule_date: str
+    start_time: str
+    end_time: str
+    cleaning: int = 0
+
+
+class ScheduleUpdateRequest(BaseModel):
+    employee_name: str | None = None
+    schedule_date: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    cleaning: int | None = None
+
+
+class BakedGoodRequest(BaseModel):
+    name: str
+    price: float
+    recipe: str | None = None
+
+
+class BakedGoodUpdateRequest(BaseModel):
+    name: str | None = None
+    price: float | None = None
+    recipe: str | None = None
+
+
+class ProductMaterialEntry(BaseModel):
+    material_id: int
+    amount: str
+
+
+class SetProductMaterialsRequest(BaseModel):
+    materials: list[ProductMaterialEntry]
+
+
+class RawPurchaseRequest(BaseModel):
+    material_id: int
+    amount: str
+    price: float
+    purchase_date: str
+
+
+class RawPurchaseUpdateRequest(BaseModel):
+    material_id: int | None = None
+    amount: str | None = None
+    price: float | None = None
+    purchase_date: str | None = None
+
+
+class CookingPlanRequest(BaseModel):
+    plan_date: str
+    product_id: int
+    quantity: int
+
+
+class CookingPlanUpdateRequest(BaseModel):
+    plan_date: str | None = None
+    product_id: int | None = None
+    quantity: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -217,6 +281,217 @@ async def get_open_tickets():
 
 
 # ---------------------------------------------------------------------------
+# Schedule endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/schedules")
+async def get_schedules(
+    date: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
+    """Get schedules, optionally filtered by date or date range."""
+    schedules = db.get_schedules(schedule_date=date, start_date=start_date, end_date=end_date)
+    return {"schedules": schedules}
+
+
+@app.post("/api/schedules")
+async def create_schedule(body: ScheduleRequest):
+    """Create a new schedule entry."""
+    result = db.create_schedule(
+        employee_name=body.employee_name,
+        schedule_date=body.schedule_date,
+        start_time=body.start_time,
+        end_time=body.end_time,
+        cleaning=body.cleaning,
+    )
+    return result
+
+
+@app.put("/api/schedules/{schedule_id}")
+async def update_schedule(schedule_id: int, body: ScheduleUpdateRequest):
+    """Update a schedule entry."""
+    result = db.update_schedule(
+        schedule_id,
+        employee_name=body.employee_name,
+        schedule_date=body.schedule_date,
+        start_time=body.start_time,
+        end_time=body.end_time,
+        cleaning=body.cleaning,
+    )
+    if result.get("status") == "error":
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result
+
+
+@app.delete("/api/schedules/{schedule_id}")
+async def delete_schedule(schedule_id: int):
+    """Delete a schedule entry."""
+    result = db.delete_schedule(schedule_id)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Baked goods endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/baked-goods")
+async def get_baked_goods():
+    """Get all baked goods (products)."""
+    items = db.get_baked_goods()
+    return {"baked_goods": items}
+
+
+@app.get("/api/baked-goods/{product_id}")
+async def get_baked_good(product_id: int):
+    """Get a single baked good with its materials."""
+    item = db.get_baked_good(product_id)
+    if not item:
+        raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
+    return item
+
+
+@app.post("/api/baked-goods")
+async def create_baked_good(body: BakedGoodRequest):
+    """Create a new baked good (product)."""
+    result = db.create_baked_good(name=body.name, price=body.price, recipe=body.recipe)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
+
+
+@app.put("/api/baked-goods/{product_id}")
+async def update_baked_good(product_id: int, body: BakedGoodUpdateRequest):
+    """Update a baked good."""
+    result = db.update_baked_good(product_id, name=body.name, price=body.price, recipe=body.recipe)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result
+
+
+@app.delete("/api/baked-goods/{product_id}")
+async def delete_baked_good(product_id: int):
+    """Delete a baked good (cascades to product_materials)."""
+    result = db.delete_baked_good(product_id)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result
+
+
+@app.get("/api/baked-goods/{product_id}/materials")
+async def get_product_materials(product_id: int):
+    """Get all materials for a product."""
+    materials = db.get_product_materials(product_id)
+    return {"materials": materials}
+
+
+@app.put("/api/baked-goods/{product_id}/materials")
+async def set_product_materials(product_id: int, body: SetProductMaterialsRequest):
+    """Replace all materials for a product."""
+    materials = [{"material_id": m.material_id, "amount": m.amount} for m in body.materials]
+    result = db.set_product_materials(product_id, materials)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Raw purchases endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/purchases")
+async def get_purchases(
+    material_id: int | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
+    """Get raw material purchases with optional filters."""
+    items = db.get_raw_purchases(material_id=material_id, start_date=start_date, end_date=end_date)
+    return {"purchases": items}
+
+
+@app.post("/api/purchases")
+async def create_purchase(body: RawPurchaseRequest):
+    """Create a new raw material purchase."""
+    result = db.create_raw_purchase(
+        material_id=body.material_id,
+        amount=body.amount,
+        price=body.price,
+        purchase_date=body.purchase_date,
+    )
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
+
+
+@app.put("/api/purchases/{purchase_id}")
+async def update_purchase(purchase_id: int, body: RawPurchaseUpdateRequest):
+    """Update a raw material purchase."""
+    result = db.update_raw_purchase(
+        purchase_id,
+        material_id=body.material_id,
+        amount=body.amount,
+        price=body.price,
+        purchase_date=body.purchase_date,
+    )
+    if result.get("status") == "error":
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result
+
+
+@app.delete("/api/purchases/{purchase_id}")
+async def delete_purchase(purchase_id: int):
+    """Delete a raw material purchase."""
+    result = db.delete_raw_purchase(purchase_id)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Cooking plan endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/cooking-plans")
+async def get_cooking_plans(date: str | None = None):
+    """Get cooking plans, optionally filtered by date."""
+    items = db.get_cooking_plans(plan_date=date)
+    return {"cooking_plans": items}
+
+
+@app.post("/api/cooking-plans")
+async def create_cooking_plan(body: CookingPlanRequest):
+    """Create or update a cooking plan entry."""
+    result = db.create_cooking_plan(
+        plan_date=body.plan_date,
+        product_id=body.product_id,
+        quantity=body.quantity,
+    )
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
+
+
+@app.put("/api/cooking-plans/{plan_id}")
+async def update_cooking_plan(plan_id: int, body: CookingPlanUpdateRequest):
+    """Update a cooking plan entry."""
+    result = db.update_cooking_plan(
+        plan_id,
+        plan_date=body.plan_date,
+        product_id=body.product_id,
+        quantity=body.quantity,
+    )
+    if result.get("status") == "error":
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result
+
+
+@app.delete("/api/cooking-plans/{plan_id}")
+async def delete_cooking_plan(plan_id: int):
+    """Delete a cooking plan entry."""
+    result = db.delete_cooking_plan(plan_id)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Inventory endpoints (maps materials table to inventory log shape)
 # ---------------------------------------------------------------------------
 @app.get("/api/inventory")
@@ -258,11 +533,16 @@ async def get_dashboard():
         }
         for m in materials
     ]
+    today = date.today().isoformat()
+    schedules = db.get_schedules(schedule_date=today)
+    cooking_plans = db.get_cooking_plans(plan_date=today)
     return {
         "sanitation": {"items": sanitation_items, "summary": sanitation_summary},
         "cleaning": {"tasks": cleaning_tasks, "summary": cleaning_summary},
         "inventory": {"items": inventory_items},
         "tickets": tickets,
+        "schedules": schedules,
+        "cooking_plans": cooking_plans,
     }
 
 

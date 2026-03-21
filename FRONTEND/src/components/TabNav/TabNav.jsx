@@ -1,11 +1,15 @@
 import './TabNav.css'
 
 const TABS = [
-  { id: 'dashboard', label: 'Home'      },
-  { id: 'tickets',   label: 'Tickets'   },
-  { id: 'inventory', label: 'Inventory' },
-  { id: 'cleaning',  label: 'Cleaning'  },
-  { id: 'haccp',     label: 'HACCP'     },
+  { id: 'dashboard',    label: 'Home'         },
+  { id: 'tickets',      label: 'Tickets'      },
+  { id: 'inventory',    label: 'Inventory'    },
+  { id: 'cleaning',     label: 'Cleaning'     },
+  { id: 'haccp',        label: 'HACCP'        },
+  { id: 'schedule',     label: 'Schedule'     },
+  { id: 'products',     label: 'Products'     },
+  { id: 'purchases',    label: 'Purchases'    },
+  { id: 'cooking-plan', label: 'Cooking Plan' },
 ]
 
 export default function TabNav({ activeTab, onTabChange }) {

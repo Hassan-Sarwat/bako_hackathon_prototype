@@ -235,6 +235,119 @@ def random_time(base_date: datetime, hour_range: tuple[int, int] = (5, 18)) -> s
     return base_date.replace(hour=h, minute=m, second=s).isoformat()
 
 
+EMPLOYEE_NAMES = [
+    "Anna Müller",
+    "Jan Schmidt",
+    "Lisa Weber",
+    "Tom Fischer",
+    "Sarah Becker",
+    "Marco Schulz",
+    "Julia Meier",
+]
+
+SHIFT_PATTERNS = [
+    ("04:00", "12:00"),  # Frühschicht
+    ("05:00", "13:00"),  # Frühschicht
+    ("06:00", "14:00"),  # Normalschicht
+    ("08:00", "16:00"),  # Tagschicht
+    ("10:00", "18:00"),  # Spätschicht
+    ("12:00", "20:00"),  # Spätschicht
+]
+
+BAKED_GOODS = [
+    {
+        "name": "Croissant",
+        "price": 1.80,
+        "recipe": "Blätterteig herstellen: Mehl, Wasser, Salz, Hefe und Butter zu einem Teig verarbeiten. "
+                  "Mehrfach falten und kühlen. In Dreiecke schneiden, aufrollen. "
+                  "Bei 200°C ca. 15 Minuten goldbraun backen.",
+        "materials": [("Weizenmehl", "500g"), ("Butter", "250g"), ("Hefe", "20g"), ("Zucker", "30g"), ("Salz", "10g"), ("Eier", "1 Stück")],
+    },
+    {
+        "name": "Vollkornbrot",
+        "price": 3.50,
+        "recipe": "Roggenmehl, Dinkelmehl, Hefe, Salz und Wasser vermengen. "
+                  "Teig 1 Stunde gehen lassen. In Kastenform geben. "
+                  "Bei 220°C 45 Minuten backen.",
+        "materials": [("Roggenmehl", "400g"), ("Dinkelmehl", "200g"), ("Hefe", "25g"), ("Salz", "15g"), ("Leinsamen", "30g"), ("Kürbiskerne", "20g")],
+    },
+    {
+        "name": "Schokoladenkuchen",
+        "price": 2.90,
+        "recipe": "Butter und Zucker cremig rühren. Eier einzeln unterrühren. "
+                  "Mehl, Backpulver und Schokoladenstückchen unterheben. "
+                  "Bei 180°C 35 Minuten backen. Abkühlen lassen und mit Puderzucker bestäuben.",
+        "materials": [("Weizenmehl", "300g"), ("Zucker", "200g"), ("Butter", "150g"), ("Eier", "4 Stück"), ("Schokoladenstückchen", "200g"), ("Backpulver", "10g"), ("Puderzucker", "30g")],
+    },
+    {
+        "name": "Brezeln",
+        "price": 1.20,
+        "recipe": "Mehl, Hefe, Salz und Wasser zu einem glatten Teig kneten. "
+                  "Teiglinge formen und in Natronlauge tauchen. "
+                  "Mit grobem Salz bestreuen. Bei 220°C 12-15 Minuten backen.",
+        "materials": [("Weizenmehl", "500g"), ("Hefe", "15g"), ("Salz", "20g"), ("Butter", "30g")],
+    },
+    {
+        "name": "Mohnkuchen",
+        "price": 2.50,
+        "recipe": "Hefeteig herstellen und ausrollen. Mohnfüllung aus gemahlenem Mohn, "
+                  "Milch, Zucker und Rosinen zubereiten. Auf Teig verteilen. "
+                  "Bei 180°C 40 Minuten backen.",
+        "materials": [("Weizenmehl", "400g"), ("Mohn", "200g"), ("Zucker", "150g"), ("Milch", "200ml"), ("Butter", "100g"), ("Rosinen", "50g"), ("Hefe", "20g")],
+    },
+    {
+        "name": "Mandelkuchen",
+        "price": 3.20,
+        "recipe": "Butter und Zucker aufschlagen. Eier unterrühren. Mehl und gehobelte Mandeln unterheben. "
+                  "Mit Marzipanrohmasse verfeinern. Bei 175°C 45 Minuten backen.",
+        "materials": [("Weizenmehl", "250g"), ("Mandeln gehobelt", "150g"), ("Marzipanrohmasse", "100g"), ("Zucker", "180g"), ("Butter", "200g"), ("Eier", "4 Stück")],
+    },
+    {
+        "name": "Sesambrötchen",
+        "price": 0.80,
+        "recipe": "Mehl, Hefe, Salz und Wasser verkneten. 30 Minuten gehen lassen. "
+                  "Brötchen formen, mit Wasser bestreichen und Sesam bestreuen. "
+                  "Bei 230°C 18 Minuten backen.",
+        "materials": [("Weizenmehl", "500g"), ("Hefe", "20g"), ("Salz", "10g"), ("Sesam", "40g"), ("Sonnenblumenöl", "20ml")],
+    },
+    {
+        "name": "Vanillekipferl",
+        "price": 4.50,
+        "recipe": "Mehl, Butter, Zucker und gemahlene Haselnüsse zu einem Mürbteig verarbeiten. "
+                  "Kipferl formen. Bei 180°C 10-12 Minuten backen. "
+                  "Warm in Vanillezucker wälzen.",
+        "materials": [("Weizenmehl", "300g"), ("Butter", "200g"), ("Zucker", "80g"), ("Haselnüsse gemahlen", "100g"), ("Vanilleextrakt", "10ml"), ("Puderzucker", "50g")],
+    },
+]
+
+RAW_PURCHASE_TEMPLATES = [
+    ("Weizenmehl", "25kg", 18.50),
+    ("Weizenmehl", "50kg", 35.00),
+    ("Roggenmehl", "25kg", 22.00),
+    ("Dinkelmehl", "10kg", 14.00),
+    ("Zucker", "25kg", 19.00),
+    ("Puderzucker", "5kg", 6.50),
+    ("Butter", "10kg", 45.00),
+    ("Butter", "20kg", 88.00),
+    ("Eier", "360 Stück", 72.00),
+    ("Eier", "180 Stück", 38.00),
+    ("Hefe", "5kg", 12.00),
+    ("Vanilleextrakt", "1L", 28.00),
+    ("Schokoladenstückchen", "5kg", 32.00),
+    ("Backpulver", "2kg", 8.00),
+    ("Sahne", "10L", 24.00),
+    ("Milch", "20L", 16.00),
+    ("Marzipanrohmasse", "5kg", 42.00),
+    ("Mandeln gehobelt", "2kg", 24.00),
+    ("Haselnüsse gemahlen", "2kg", 22.00),
+    ("Rosinen", "2kg", 9.00),
+    ("Mohn", "1kg", 11.00),
+    ("Sesam", "1kg", 7.00),
+    ("Salz", "10kg", 4.00),
+    ("Sonnenblumenöl", "5L", 8.50),
+]
+
+
 def create_tables(cursor: sqlite3.Cursor) -> None:
     """Ensure all tables exist (mirrors src/db.py schema)."""
     cursor.executescript("""
@@ -285,6 +398,49 @@ def create_tables(cursor: sqlite3.Cursor) -> None:
             tool_args TEXT,
             tool_result TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS schedules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            employee_name TEXT NOT NULL,
+            schedule_date TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            cleaning INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS baked_goods (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            recipe TEXT,
+            price REAL NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS product_materials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            material_id INTEGER NOT NULL,
+            amount TEXT NOT NULL,
+            FOREIGN KEY (product_id) REFERENCES baked_goods(id) ON DELETE CASCADE,
+            FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE,
+            UNIQUE(product_id, material_id)
+        );
+        CREATE TABLE IF NOT EXISTS raw_purchases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            material_id INTEGER NOT NULL,
+            amount TEXT NOT NULL,
+            price REAL NOT NULL,
+            purchase_date TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS cooking_plans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plan_date TEXT NOT NULL,
+            product_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES baked_goods(id) ON DELETE CASCADE,
+            UNIQUE(plan_date, product_id)
         );
     """)
 
@@ -403,6 +559,126 @@ def seed_audit_log(cursor: sqlite3.Cursor) -> None:
     print(f"  audit_log: {total} Einträge eingefügt (6 Tage)")
 
 
+def seed_schedules(cursor: sqlite3.Cursor) -> None:
+    """Seed schedules for current week + next week (Mon-Sat)."""
+    total = 0
+    # Find Monday of the current week
+    today = TODAY.date()
+    monday = today - timedelta(days=today.weekday())
+
+    for week_offset in range(3):  # previous week, this week, next week
+        week_start = monday + timedelta(weeks=week_offset - 1)
+        for day_offset in range(6):  # Mon-Sat (bakery closed Sunday)
+            day = week_start + timedelta(days=day_offset)
+            day_str = day.isoformat()
+
+            # Schedule 3-5 employees per day
+            n_employees = random.randint(3, 5)
+            day_employees = random.sample(EMPLOYEE_NAMES, n_employees)
+
+            # One person gets cleaning duty
+            cleaning_person = random.choice(day_employees)
+
+            for emp in day_employees:
+                shift = random.choice(SHIFT_PATTERNS)
+                cleaning = 1 if emp == cleaning_person else 0
+                cursor.execute(
+                    "INSERT INTO schedules (employee_name, schedule_date, start_time, end_time, cleaning) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (emp, day_str, shift[0], shift[1], cleaning),
+                )
+                total += 1
+
+    print(f"  schedules: {total} Einträge eingefügt (3 Wochen)")
+
+
+def seed_baked_goods(cursor: sqlite3.Cursor) -> None:
+    """Seed baked goods with recipes and material links."""
+    # First build a material name → id map
+    cursor.execute("SELECT id, item_name FROM materials")
+    mat_map = {row[1]: row[0] for row in cursor.fetchall()}
+
+    for bg in BAKED_GOODS:
+        cursor.execute(
+            "INSERT OR IGNORE INTO baked_goods (name, price, recipe) VALUES (?, ?, ?)",
+            (bg["name"], bg["price"], bg["recipe"]),
+        )
+        cursor.execute("SELECT id FROM baked_goods WHERE name = ?", (bg["name"],))
+        product_id = cursor.fetchone()[0]
+
+        for mat_name, amount in bg["materials"]:
+            if mat_name in mat_map:
+                cursor.execute(
+                    "INSERT OR IGNORE INTO product_materials (product_id, material_id, amount) "
+                    "VALUES (?, ?, ?)",
+                    (product_id, mat_map[mat_name], amount),
+                )
+
+    print(f"  baked_goods: {len(BAKED_GOODS)} Produkte mit Rezepten eingefügt")
+
+
+def seed_raw_purchases(cursor: sqlite3.Cursor) -> None:
+    """Seed raw material purchases over the past 30 days."""
+    cursor.execute("SELECT id, item_name FROM materials")
+    mat_map = {row[1]: row[0] for row in cursor.fetchall()}
+
+    total = 0
+    for days_back in range(30, -1, -1):
+        # 0-3 purchases per day
+        n_purchases = random.randint(0, 3)
+        purchase_date = (TODAY - timedelta(days=days_back)).date().isoformat()
+
+        for _ in range(n_purchases):
+            template = random.choice(RAW_PURCHASE_TEMPLATES)
+            mat_name, amount, base_price = template
+            if mat_name not in mat_map:
+                continue
+            # Add some price variation (±15%)
+            price = round(base_price * random.uniform(0.85, 1.15), 2)
+            cursor.execute(
+                "INSERT INTO raw_purchases (material_id, amount, price, purchase_date) "
+                "VALUES (?, ?, ?, ?)",
+                (mat_map[mat_name], amount, price, purchase_date),
+            )
+            total += 1
+
+    print(f"  raw_purchases: {total} Einträge eingefügt (30 Tage)")
+
+
+def seed_cooking_plans(cursor: sqlite3.Cursor) -> None:
+    """Seed cooking plans for the past 2 weeks + today."""
+    cursor.execute("SELECT id, name FROM baked_goods")
+    products = cursor.fetchall()
+    if not products:
+        print("  cooking_plans: Keine Produkte vorhanden, übersprungen")
+        return
+
+    total = 0
+    for days_back in range(14, -1, -1):
+        plan_date = (TODAY - timedelta(days=days_back)).date().isoformat()
+        # Plan 3-6 products per day
+        n_products = random.randint(3, min(6, len(products)))
+        day_products = random.sample(products, n_products)
+
+        for prod_id, prod_name in day_products:
+            # Realistic quantities
+            if prod_name in ("Croissant", "Brezeln", "Sesambrötchen"):
+                qty = random.randint(50, 150)
+            elif prod_name in ("Vanillekipferl",):
+                qty = random.randint(80, 200)
+            else:
+                qty = random.randint(10, 40)
+
+            cursor.execute(
+                "INSERT OR IGNORE INTO cooking_plans (plan_date, product_id, quantity) "
+                "VALUES (?, ?, ?)",
+                (plan_date, prod_id, qty),
+            )
+            total += 1
+
+    print(f"  cooking_plans: {total} Einträge eingefügt (15 Tage)")
+
+
 def main() -> None:
     reset = "--reset" in sys.argv
 
@@ -415,9 +691,15 @@ def main() -> None:
 
     create_tables(cursor)
 
+    cursor.execute("PRAGMA foreign_keys = ON")
+
     if reset:
         print("Lösche vorhandene Daten ...")
-        for table in ["checklist_items", "materials", "cleaning_tasks", "tickets", "audit_log"]:
+        for table in [
+            "cooking_plans", "raw_purchases", "product_materials", "baked_goods",
+            "schedules", "checklist_items", "materials", "cleaning_tasks",
+            "tickets", "audit_log",
+        ]:
             cursor.execute(f"DELETE FROM {table}")
         print()
 
@@ -427,6 +709,10 @@ def main() -> None:
     seed_cleaning_tasks(cursor)
     seed_tickets(cursor)
     seed_audit_log(cursor)
+    seed_schedules(cursor)
+    seed_baked_goods(cursor)
+    seed_raw_purchases(cursor)
+    seed_cooking_plans(cursor)
 
     conn.commit()
     conn.close()
