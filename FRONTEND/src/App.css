@@ -46,6 +46,14 @@
   white-space: nowrap;
 }
 
+.dashboard-title--btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
 /* ── Main Content ──────────────────────────────────────────────────────── */
 
 .dashboard-content {
