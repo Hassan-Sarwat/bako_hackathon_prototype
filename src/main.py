@@ -31,11 +31,16 @@ load_dotenv()
 FORMAT = pyaudio.paInt16
 
 
-async def run():
+async def run(staff_id: str | None = None):
     """Main async loop: connect to Gemini Live API and stream audio."""
     # Initialize database
     init_db()
     print("Database initialized with bakery checklists.")
+    if staff_id:
+        print(f"Logged in as: {staff_id}")
+    else:
+        print("WARNING: No staff member identified. Write operations will be blocked.")
+        print("         Pass --staff-id <name> to identify yourself.\n")
 
     # Create Gemini client
     client = genai.Client(http_options={"api_version": "v1alpha"})
@@ -107,7 +112,7 @@ async def run():
                     if response.tool_call:
                         function_responses = []
                         for fc in response.tool_call.function_calls:
-                            result = await handle_tool_call(fc.name, fc.args)
+                            result = await handle_tool_call(fc.name, fc.args, staff_id=staff_id)
                             function_responses.append(
                                 types.FunctionResponse(
                                     id=fc.id,
@@ -157,6 +162,17 @@ async def run():
 
 def main():
     """Entry point."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Bakery Voice Assistant")
+    parser.add_argument(
+        "--staff-id",
+        type=str,
+        default=None,
+        help="Staff member identifier (will be NFC-based in production)",
+    )
+    args = parser.parse_args()
+
     print("=" * 50)
     print("  Bakery Voice Assistant")
     print("  Sanitation & Inventory Checklist Manager")
@@ -166,7 +182,7 @@ def main():
     print()
 
     try:
-        asyncio.run(run())
+        asyncio.run(run(staff_id=args.staff_id))
     except KeyboardInterrupt:
         print("\n\nGoodbye! Have a great baking day!")
         sys.exit(0)

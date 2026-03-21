@@ -112,6 +112,60 @@ get_checklist_summary_decl = types.FunctionDeclaration(
     ),
 )
 
+# Tool: Raise a ticket for the office
+raise_ticket_decl = types.FunctionDeclaration(
+    name="raise_ticket",
+    description=(
+        "Raise a ticket to notify the office about an issue. "
+        "Determine the urgency based on context: use 'urgent' for broken machines, "
+        "employee no-shows, products completely out of stock, or safety hazards. "
+        "Use 'high' for equipment malfunctioning but still usable, or stock very low. "
+        "Use 'normal' for supplies running low soon or general maintenance requests. "
+        "Use 'low' for nice-to-have improvements or non-time-sensitive requests."
+    ),
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={
+            "title": types.Schema(
+                type="STRING",
+                description="Short summary of the issue",
+            ),
+            "description": types.Schema(
+                type="STRING",
+                description="Detailed description of the issue",
+            ),
+            "category": types.Schema(
+                type="STRING",
+                description="Category of the ticket",
+                enum=[
+                    "machine_breakdown",
+                    "employee_no_show",
+                    "stock_shortage",
+                    "maintenance",
+                    "safety",
+                    "other",
+                ],
+            ),
+            "urgency": types.Schema(
+                type="STRING",
+                description="Urgency level determined by the nature of the issue",
+                enum=["urgent", "high", "normal", "low"],
+            ),
+        },
+        required=["title", "description", "category", "urgency"],
+    ),
+)
+
+# Tool: Get open tickets
+get_open_tickets_decl = types.FunctionDeclaration(
+    name="get_open_tickets",
+    description="Get all currently open tickets, sorted by urgency.",
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={},
+    ),
+)
+
 # All tools bundled for the Gemini config
 all_tools = types.Tool(
     function_declarations=[
@@ -121,5 +175,7 @@ all_tools = types.Tool(
         add_inventory_count_decl,
         log_cleaning_activity_decl,
         get_checklist_summary_decl,
+        raise_ticket_decl,
+        get_open_tickets_decl,
     ]
 )

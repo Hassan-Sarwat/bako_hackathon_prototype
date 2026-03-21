@@ -49,6 +49,7 @@ def init_db() -> None:
             item_name TEXT NOT NULL,
             is_complete INTEGER DEFAULT 0,
             completed_at TEXT,
+            completed_by TEXT,
             notes TEXT
         );
 
@@ -56,6 +57,7 @@ def init_db() -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_name TEXT NOT NULL,
             count INTEGER NOT NULL,
+            logged_by TEXT,
             logged_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -63,7 +65,20 @@ def init_db() -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             area TEXT NOT NULL,
             action TEXT NOT NULL,
+            logged_by TEXT,
             logged_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            category TEXT NOT NULL,
+            urgency TEXT NOT NULL DEFAULT 'normal',
+            status TEXT NOT NULL DEFAULT 'open',
+            raised_by TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TEXT
         );
     """)
 
@@ -98,32 +113,37 @@ def get_incomplete_items(checklist_type: str) -> list[dict]:
     return items
 
 
-def mark_item_complete(item_id: int, notes: str | None = None) -> dict:
-    """Mark a checklist item as complete."""
+def mark_item_complete(item_id: int, notes: str | None = None, staff_id: str | None = None) -> dict:
+    """Mark a checklist item as complete. Requires staff_id to be set."""
+    if not staff_id:
+        return {"status": "error", "message": "Cannot mark item complete without a staff member identified. Please scan your NFC card first."}
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE checklist_items SET is_complete = 1, completed_at = ?, notes = ? WHERE id = ?",
-        (datetime.now().isoformat(), notes, item_id),
+        "UPDATE checklist_items SET is_complete = 1, completed_at = ?, completed_by = ?, notes = ? WHERE id = ?",
+        (datetime.now().isoformat(), staff_id, notes, item_id),
     )
     conn.commit()
 
-    # Return the item info
     cursor.execute("SELECT item_name, checklist_type FROM checklist_items WHERE id = ?", (item_id,))
     row = cursor.fetchone()
     conn.close()
 
     if row:
-        return {"status": "success", "item_name": row["item_name"], "checklist_type": row["checklist_type"]}
+        return {"status": "success", "item_name": row["item_name"], "checklist_type": row["checklist_type"], "completed_by": staff_id}
     return {"status": "error", "message": f"Item {item_id} not found"}
 
 
-def mark_item_incomplete(item_id: int) -> dict:
-    """Mark a checklist item as incomplete."""
+def mark_item_incomplete(item_id: int, staff_id: str | None = None) -> dict:
+    """Mark a checklist item as incomplete. Requires staff_id to be set."""
+    if not staff_id:
+        return {"status": "error", "message": "Cannot update item without a staff member identified. Please scan your NFC card first."}
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE checklist_items SET is_complete = 0, completed_at = NULL, notes = NULL WHERE id = ?",
+        "UPDATE checklist_items SET is_complete = 0, completed_at = NULL, completed_by = NULL, notes = NULL WHERE id = ?",
         (item_id,),
     )
     conn.commit()
@@ -137,30 +157,36 @@ def mark_item_incomplete(item_id: int) -> dict:
     return {"status": "error", "message": f"Item {item_id} not found"}
 
 
-def add_inventory_count(item_name: str, count: int) -> dict:
-    """Log an inventory count for an item."""
+def add_inventory_count(item_name: str, count: int, staff_id: str | None = None) -> dict:
+    """Log an inventory count for an item. Requires staff_id to be set."""
+    if not staff_id:
+        return {"status": "error", "message": "Cannot log inventory without a staff member identified. Please scan your NFC card first."}
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO inventory_log (item_name, count) VALUES (?, ?)",
-        (item_name, count),
+        "INSERT INTO inventory_log (item_name, count, logged_by) VALUES (?, ?, ?)",
+        (item_name, count, staff_id),
     )
     conn.commit()
     conn.close()
-    return {"status": "success", "item_name": item_name, "count": count}
+    return {"status": "success", "item_name": item_name, "count": count, "logged_by": staff_id}
 
 
-def log_cleaning(area: str, action: str) -> dict:
-    """Log a cleaning activity."""
+def log_cleaning(area: str, action: str, staff_id: str | None = None) -> dict:
+    """Log a cleaning activity. Requires staff_id to be set."""
+    if not staff_id:
+        return {"status": "error", "message": "Cannot log cleaning without a staff member identified. Please scan your NFC card first."}
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO cleaning_log (area, action) VALUES (?, ?)",
-        (area, action),
+        "INSERT INTO cleaning_log (area, action, logged_by) VALUES (?, ?, ?)",
+        (area, action, staff_id),
     )
     conn.commit()
     conn.close()
-    return {"status": "success", "area": area, "action": action}
+    return {"status": "success", "area": area, "action": action, "logged_by": staff_id}
 
 
 def get_checklist_summary(checklist_type: str) -> dict:
@@ -186,6 +212,55 @@ def get_checklist_summary(checklist_type: str) -> dict:
         "total": total,
         "remaining": total - done,
     }
+
+
+def raise_ticket(
+    title: str,
+    description: str,
+    category: str,
+    urgency: str = "normal",
+    raised_by: str | None = None,
+) -> dict:
+    """Raise a new ticket for the office."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO tickets (title, description, category, urgency, raised_by) VALUES (?, ?, ?, ?, ?)",
+        (title, description, category, urgency, raised_by),
+    )
+    ticket_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return {
+        "status": "success",
+        "ticket_id": ticket_id,
+        "title": title,
+        "category": category,
+        "urgency": urgency,
+    }
+
+
+def get_open_tickets() -> list[dict]:
+    """Get all open tickets."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, title, description, category, urgency, raised_by, created_at FROM tickets WHERE status = 'open' ORDER BY CASE urgency WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 WHEN 'low' THEN 3 END, created_at DESC"
+    )
+    tickets = [
+        {
+            "id": row["id"],
+            "title": row["title"],
+            "description": row["description"],
+            "category": row["category"],
+            "urgency": row["urgency"],
+            "raised_by": row["raised_by"],
+            "created_at": row["created_at"],
+        }
+        for row in cursor.fetchall()
+    ]
+    conn.close()
+    return tickets
 
 
 def reset_checklists() -> dict:
