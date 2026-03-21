@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import TabNav from './components/TabNav/TabNav'
+import ScrollToTop from './components/ScrollToTop/ScrollToTop'
+import DashboardTab from './tabs/DashboardTab/DashboardTab'
 import TicketsTab from './tabs/TicketsTab/TicketsTab'
 import InventoryTab from './tabs/InventoryTab/InventoryTab'
 import CleaningTab from './tabs/CleaningTab/CleaningTab'
@@ -16,7 +18,7 @@ function useClock() {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState('tickets')
+  const [activeTab, setActiveTab] = useState('dashboard')
   const clock = useClock()
 
   const timeStr = clock.toLocaleTimeString([], {
@@ -34,10 +36,13 @@ function App() {
   return (
     <>
       <header className="dashboard-header">
-        <div className="dashboard-title">
+        <button
+          className="dashboard-title dashboard-title--btn"
+          onClick={() => setActiveTab('dashboard')}
+        >
           <h1>Bako Bakery</h1>
           <span>Operations Dashboard</span>
-        </div>
+        </button>
         <div className="dashboard-clock">
           {dateStr} &nbsp;·&nbsp; {timeStr}
         </div>
@@ -47,12 +52,15 @@ function App() {
         <TabNav activeTab={activeTab} onTabChange={setActiveTab} />
 
         <main className="tab-content" role="tabpanel">
-          {activeTab === 'tickets'   && <TicketsTab />}
-          {activeTab === 'inventory' && <InventoryTab />}
-          {activeTab === 'cleaning'  && <CleaningTab />}
-          {activeTab === 'haccp'     && <HaccpTab />}
+          {activeTab === 'dashboard'  && <DashboardTab onNavigate={setActiveTab} />}
+          {activeTab === 'tickets'    && <TicketsTab />}
+          {activeTab === 'inventory'  && <InventoryTab />}
+          {activeTab === 'cleaning'   && <CleaningTab />}
+          {activeTab === 'haccp'      && <HaccpTab />}
         </main>
       </div>
+
+      <ScrollToTop />
     </>
   )
 }

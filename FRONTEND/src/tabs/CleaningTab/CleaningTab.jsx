@@ -16,6 +16,7 @@ export default function CleaningTab() {
   const [cleaning, setCleaning] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [activeFilter, setActiveFilter] = useState('all')
 
   useEffect(() => {
     Promise.all([fetchChecklistItems('sanitation'), fetchCleaningTasks()])
@@ -30,10 +31,8 @@ export default function CleaningTab() {
   function toggleSanitation(id) {
     const item = sanitation.find(i => i.id === id)
     const apiFn = item.is_complete ? markChecklistIncomplete : markChecklistComplete
-    // Optimistic update
     setSanitation(prev => prev.map(i => i.id === id ? { ...i, is_complete: !i.is_complete } : i))
     apiFn(id).catch(() => {
-      // Revert on failure
       setSanitation(prev => prev.map(i => i.id === id ? { ...i, is_complete: item.is_complete } : i))
     })
   }
@@ -41,10 +40,8 @@ export default function CleaningTab() {
   function toggleCleaning(id) {
     const task = cleaning.find(t => t.id === id)
     const apiFn = task.is_complete ? markCleaningIncomplete : markCleaningComplete
-    // Optimistic update
     setCleaning(prev => prev.map(t => t.id === id ? { ...t, is_complete: !t.is_complete } : t))
     apiFn(id).catch(() => {
-      // Revert on failure
       setCleaning(prev => prev.map(t => t.id === id ? { ...t, is_complete: task.is_complete } : t))
     })
   }
@@ -52,10 +49,20 @@ export default function CleaningTab() {
   if (loading) return <div className="tab-status">Loading cleaning tasks…</div>
   if (error)   return <div className="tab-status tab-status--error">Error: {error}</div>
 
+  // Derive sections dynamically from available data
+  const sections = [
+    { id: 'sanitation', label: 'Sanitation Checklist', items: sanitation, toggleFn: toggleSanitation, areaLabel: false },
+    { id: 'cleaning',   label: 'Daily Cleaning Tasks',  items: cleaning,   toggleFn: toggleCleaning,  areaLabel: true  },
+  ].filter(s => s.items.length > 0)
+
   const sanitationDone = sanitation.filter(i => i.is_complete).length
   const cleaningDone   = cleaning.filter(i => i.is_complete).length
   const totalDone = sanitationDone + cleaningDone
   const totalAll  = sanitation.length + cleaning.length
+
+  const visibleSections = activeFilter === 'all'
+    ? sections
+    : sections.filter(s => s.id === activeFilter)
 
   return (
     <div className="cleaning-tab">
@@ -63,29 +70,49 @@ export default function CleaningTab() {
         <ProgressBar completed={totalDone} total={totalAll} label="Overall Progress" />
       </div>
 
-      <section className="cleaning-section">
-        <div className="cleaning-section-header">
-          <h2>Sanitation Checklist</h2>
-          <ProgressBar completed={sanitationDone} total={sanitation.length} />
-        </div>
-        <div className="cleaning-list">
-          {sanitation.map(item => (
-            <ChecklistRow key={item.id} item={item} onToggle={toggleSanitation} />
-          ))}
-        </div>
-      </section>
+      <div className="section-filter-bar" role="tablist" aria-label="Filter sections">
+        <button
+          role="tab"
+          aria-selected={activeFilter === 'all'}
+          className={`section-filter-btn ${activeFilter === 'all' ? 'section-filter-btn--active' : ''}`}
+          onClick={() => setActiveFilter('all')}
+        >
+          All
+        </button>
+        {sections.map(s => (
+          <button
+            key={s.id}
+            role="tab"
+            aria-selected={activeFilter === s.id}
+            className={`section-filter-btn ${activeFilter === s.id ? 'section-filter-btn--active' : ''}`}
+            onClick={() => setActiveFilter(s.id)}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
 
-      <section className="cleaning-section">
-        <div className="cleaning-section-header">
-          <h2>Daily Cleaning Tasks</h2>
-          <ProgressBar completed={cleaningDone} total={cleaning.length} />
-        </div>
-        <div className="cleaning-list">
-          {cleaning.map(task => (
-            <ChecklistRow key={task.id} item={{ ...task, item_name: task.action }} onToggle={toggleCleaning} areaLabel />
-          ))}
-        </div>
-      </section>
+      {visibleSections.map(section => {
+        const done = section.items.filter(i => i.is_complete).length
+        return (
+          <section key={section.id} className="cleaning-section">
+            <div className="cleaning-section-header">
+              <h2>{section.label}</h2>
+              <ProgressBar completed={done} total={section.items.length} />
+            </div>
+            <div className="cleaning-list">
+              {section.items.map(item => (
+                <ChecklistRow
+                  key={item.id}
+                  item={section.areaLabel ? { ...item, item_name: item.action } : item}
+                  onToggle={section.toggleFn}
+                  areaLabel={section.areaLabel}
+                />
+              ))}
+            </div>
+          </section>
+        )
+      })}
     </div>
   )
 }
