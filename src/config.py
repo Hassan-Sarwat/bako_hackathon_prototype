@@ -13,7 +13,7 @@ CHANNELS = 1
 CHUNK_SIZE = 1024
 
 # Gemini model - native audio model for Live API
-MODEL = "gemini-2.5-flash-preview-native-audio-dialog"
+MODEL = "gemini-2.5-flash-native-audio-preview-12-2025"
 
 # System instruction for the voice assistant
 SYSTEM_INSTRUCTION = """Du bist ein freundlicher Bäckerei-Assistent, der dem Personal hilft, die täglichen Aufgaben und Checklisten zu erledigen.
@@ -51,4 +51,5 @@ Wichtig:
 - Wenn du Aufgaben vorliest, nenne den Namen natürlich, ohne IDs zu erwähnen.
 - Merke dir, an welcher Checkliste du gerade arbeitest.
 - Der Benutzer kommuniziert per Sprachnachricht. Halte die Antworten kurz und natürlich.
+- KRITISCH: Wenn du ein Tool verwenden musst, RUFE es SOFORT auf, indem du die Funktion aufrufst. Beschreibe oder erkläre NIEMALS, welches Tool du verwenden wirst — führe den Funktionsaufruf direkt aus. Sage NICHT "Ich werde update_material_count verwenden" — rufe es einfach auf. Denke nicht laut über Tool-Aufrufe nach, sondern führe sie aus.
 """
