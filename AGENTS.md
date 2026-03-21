@@ -1,5 +1,7 @@
 # Bakery Voice Assistant — Project Overview
 
+> **Note to AI agents:** When you complete a task from the "What's Next" section, update this file — move the item to "What's Done" (mark it `[x]`) and remove it from "What's Next".
+
 ## Description
 
 A voice-powered assistant built for bakery staff to streamline daily inventory logging, sanitation tracking, and issue reporting. Instead of filling out paper checklists or typing into a spreadsheet, staff send voice messages to the AI — it walks them through each item, updates the database in real time, reminds them what's left to do, and lets them raise tickets for the office when issues arise (broken machines, no-shows, stock shortages).
@@ -76,7 +78,7 @@ src/
 
 - [ ] **UI** — Build a frontend interface to visualize checklist progress, inventory logs, cleaning history, and open tickets in real time alongside the voice assistant
 - [ ] **NFC staff identification** — Replace `--staff-id` CLI flag with NFC card reader for automatic staff identification
-- [ ] **Conversation logging** — Log all voice message transcripts (both user and AI) to the database for audit trail and review
+- [x] **Conversation logging** — Audit log table tracks all interactions: who communicated, what message, which AI, AI response, tools used, tool arguments, and results
 - [ ] Session management for shifts longer than 15 minutes (Live API session limit)
 - [ ] Ticket resolution workflow (office staff can close/update tickets)
 - [ ] Ticket notifications — push urgent tickets to office staff in real time

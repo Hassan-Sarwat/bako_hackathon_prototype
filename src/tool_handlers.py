@@ -1,11 +1,19 @@
 """Handler that dispatches Gemini tool calls to database operations."""
 
 import asyncio
+import json
 
 from . import db
+from .config import MODEL
 
 
-async def handle_tool_call(function_name: str, args: dict, staff_id: str | None = None) -> dict:
+async def handle_tool_call(
+    function_name: str,
+    args: dict,
+    staff_id: str | None = None,
+    user_message: str | None = None,
+    ai_response: str | None = None,
+) -> dict:
     """Route a Gemini function call to the appropriate DB operation.
 
     Uses asyncio.to_thread to avoid blocking the event loop with synchronous SQLite calls.
@@ -15,6 +23,8 @@ async def handle_tool_call(function_name: str, args: dict, staff_id: str | None 
         args: The arguments Gemini provided for the tool.
         staff_id: The currently identified staff member (from NFC or manual login).
                   Write operations will be rejected if this is None.
+        user_message: The user message that triggered this tool call (for audit logging).
+        ai_response: The AI response text associated with this tool call (for audit logging).
     """
     if function_name == "mark_item_complete":
         result = await asyncio.to_thread(
@@ -67,4 +77,17 @@ async def handle_tool_call(function_name: str, args: dict, staff_id: str | None 
         result = {"status": "error", "message": f"Unknown tool: {function_name}"}
 
     print(f"  [Tool] {function_name}({args}) -> {result}")
+
+    # Log to audit table
+    await asyncio.to_thread(
+        db.log_audit,
+        staff_id=staff_id,
+        user_message=user_message,
+        ai_model=MODEL,
+        ai_response=ai_response,
+        tool_name=function_name,
+        tool_args=json.dumps(args),
+        tool_result=json.dumps(result),
+    )
+
     return result
