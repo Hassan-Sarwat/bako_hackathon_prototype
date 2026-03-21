@@ -37,10 +37,16 @@ async def handle_tool_call(
             db.get_incomplete_items, args["checklist_type"]
         )
         result = {"items": items}
-    elif function_name == "add_inventory_count":
+    elif function_name == "update_material_count":
         result = await asyncio.to_thread(
-            db.add_inventory_count, args["item_name"], args["count"], staff_id
+            db.update_material_count, args["item_name"], args["count"], staff_id
         )
+    elif function_name == "get_materials":
+        materials = await asyncio.to_thread(db.get_materials)
+        result = {"materials": materials}
+    elif function_name == "get_stale_materials":
+        materials = await asyncio.to_thread(db.get_stale_materials)
+        result = {"materials": materials}
     elif function_name == "get_cleaning_tasks":
         tasks = await asyncio.to_thread(db.get_cleaning_tasks)
         result = {"tasks": tasks}

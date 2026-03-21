@@ -51,7 +51,7 @@ class CompleteItemRequest(BaseModel):
     notes: str | None = None
 
 
-class InventoryCountRequest(BaseModel):
+class UpdateMaterialRequest(BaseModel):
     item_name: str
     count: int
 
@@ -155,18 +155,32 @@ async def get_cleaning_summary():
 
 
 # ---------------------------------------------------------------------------
-# Inventory endpoints
+# Materials endpoints
 # ---------------------------------------------------------------------------
-@app.post("/api/inventory/count")
-async def add_inventory_count(
-    body: InventoryCountRequest,
+@app.get("/api/materials")
+async def get_materials():
+    """Get all materials with current counts and last update info."""
+    materials = db.get_materials()
+    return {"materials": materials}
+
+
+@app.put("/api/materials")
+async def update_material_count(
+    body: UpdateMaterialRequest,
     x_staff_id: str | None = Header(None),
 ):
-    """Log an inventory count for an item."""
-    result = db.add_inventory_count(body.item_name, body.count, staff_id=x_staff_id)
+    """Update the count of a material."""
+    result = db.update_material_count(body.item_name, body.count, staff_id=x_staff_id)
     if result.get("status") == "error":
         raise HTTPException(status_code=400, detail=result["message"])
     return result
+
+
+@app.get("/api/materials/stale")
+async def get_stale_materials():
+    """Get materials not updated in the last 7 days — a checklist of items to recount."""
+    materials = db.get_stale_materials()
+    return {"materials": materials}
 
 
 # ---------------------------------------------------------------------------
