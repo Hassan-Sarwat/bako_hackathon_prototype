@@ -17,11 +17,12 @@ function loadInProgress() {
 }
 
 export default function TicketsTab() {
-  const [tickets, setTickets]         = useState([])
-  const [loading, setLoading]         = useState(true)
-  const [error, setError]             = useState(null)
-  const [inProgress, setInProgress]   = useState(loadInProgress)
-  const [deleting, setDeleting]       = useState(new Set())
+  const [tickets, setTickets]       = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState(null)
+  const [inProgress, setInProgress] = useState(loadInProgress)
+  const [resolving, setResolving]   = useState(new Set())
+  const [activeTab, setActiveTab]   = useState('unresolved')
 
   useEffect(() => {
     fetchTickets()
@@ -39,54 +40,90 @@ export default function TicketsTab() {
       } else {
         next.add(id)
         localStorage.setItem(LS_PREFIX + id, '1')
+        // Move view to in-progress tab when a ticket is started
+        setActiveTab('inprogress')
       }
       return next
     })
   }
 
-  function handleDelete(id) {
-    // Start the deletion animation
-    setDeleting(prev => new Set(prev).add(id))
+  function handleResolve(id) {
+    setResolving(prev => new Set(prev).add(id))
 
-    // After animation (~900ms), close via API and remove from list
+    // After success animation (~1.1s), close via API and remove from list
     setTimeout(() => {
-      closeTicket(id).catch(() => {}) // fire-and-forget; UI already removed it
+      closeTicket(id).catch(() => {})
       localStorage.removeItem(LS_PREFIX + id)
       setInProgress(prev => { const n = new Set(prev); n.delete(id); return n })
       setTickets(prev => prev.filter(t => t.id !== id))
-      setDeleting(prev => { const n = new Set(prev); n.delete(id); return n })
-    }, 900)
+      setResolving(prev => { const n = new Set(prev); n.delete(id); return n })
+    }, 1100)
   }
 
   if (loading) return <div className="tab-status">Loading tickets…</div>
   if (error)   return <div className="tab-status tab-status--error">Error: {error}</div>
 
-  const urgentCount = tickets.filter(t => t.urgency === 'urgent').length
-  const highCount   = tickets.filter(t => t.urgency === 'high').length
+  const unresolvedTickets  = tickets.filter(t => !inProgress.has(t.id))
+  const inProgressTickets  = tickets.filter(t =>  inProgress.has(t.id))
+  const visibleTickets     = activeTab === 'unresolved' ? unresolvedTickets : inProgressTickets
+
+  const urgentCount = unresolvedTickets.filter(t => t.urgency === 'urgent').length
+  const highCount   = unresolvedTickets.filter(t => t.urgency === 'high').length
 
   return (
     <div className="tickets-tab">
+      {/* Summary row */}
       <div className="tickets-summary">
         <span><strong>{tickets.length}</strong> open tickets</span>
-        {urgentCount > 0 && (
-          <span className="summary-urgent">{urgentCount} urgent</span>
-        )}
-        {highCount > 0 && (
-          <span className="summary-high">{highCount} high</span>
-        )}
+        {urgentCount > 0 && <span className="summary-urgent">{urgentCount} urgent</span>}
+        {highCount   > 0 && <span className="summary-high">{highCount} high</span>}
       </div>
-      <div className="tickets-grid">
-        {tickets.map(ticket => (
-          <TicketCard
-            key={ticket.id}
-            ticket={ticket}
-            isInProgress={inProgress.has(ticket.id)}
-            isDeleting={deleting.has(ticket.id)}
-            onToggleProgress={toggleProgress}
-            onDelete={handleDelete}
-          />
-        ))}
+
+      {/* Sub-tab bar */}
+      <div className="tickets-subtabs" role="tablist" aria-label="Ticket view">
+        <button
+          role="tab"
+          aria-selected={activeTab === 'unresolved'}
+          className={`tickets-subtab ${activeTab === 'unresolved' ? 'tickets-subtab--active' : ''}`}
+          onClick={() => setActiveTab('unresolved')}
+        >
+          Unresolved
+          {unresolvedTickets.length > 0 && (
+            <span className="tickets-subtab-count">{unresolvedTickets.length}</span>
+          )}
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'inprogress'}
+          className={`tickets-subtab ${activeTab === 'inprogress' ? 'tickets-subtab--active' : ''}`}
+          onClick={() => setActiveTab('inprogress')}
+        >
+          In Progress
+          {inProgressTickets.length > 0 && (
+            <span className="tickets-subtab-count tickets-subtab-count--progress">{inProgressTickets.length}</span>
+          )}
+        </button>
       </div>
+
+      {/* Ticket grid */}
+      {visibleTickets.length === 0 ? (
+        <div className="tickets-empty">
+          {activeTab === 'unresolved' ? 'No unresolved tickets.' : 'No tickets in progress.'}
+        </div>
+      ) : (
+        <div className="tickets-grid">
+          {visibleTickets.map(ticket => (
+            <TicketCard
+              key={ticket.id}
+              ticket={ticket}
+              isInProgress={inProgress.has(ticket.id)}
+              isResolving={resolving.has(ticket.id)}
+              onToggleProgress={toggleProgress}
+              onResolve={handleResolve}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

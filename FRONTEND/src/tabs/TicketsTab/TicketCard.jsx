@@ -11,14 +11,14 @@ function formatDate(iso) {
   })
 }
 
-export default function TicketCard({ ticket, isInProgress, isDeleting, onToggleProgress, onDelete }) {
+export default function TicketCard({ ticket, isInProgress, isResolving, onToggleProgress, onResolve }) {
   return (
     <div
       className={[
         'ticket-card',
         `ticket-card--${ticket.urgency}`,
         isInProgress ? 'ticket-card--in-progress' : '',
-        isDeleting   ? 'ticket-card--deleting'    : '',
+        isResolving  ? 'ticket-card--resolving'   : '',
       ].filter(Boolean).join(' ')}
     >
       <div className="ticket-card-header">
@@ -26,7 +26,6 @@ export default function TicketCard({ ticket, isInProgress, isDeleting, onToggleP
         <CategoryTag category={ticket.category} />
 
         <div className="ticket-card-actions">
-          {/* In-progress indicator dot (shown when active) */}
           {isInProgress && (
             <span className="ticket-progress-dot" aria-label="In progress" />
           )}
@@ -37,22 +36,35 @@ export default function TicketCard({ ticket, isInProgress, isDeleting, onToggleP
             onClick={() => onToggleProgress(ticket.id)}
             aria-label={isInProgress ? 'Stop progress' : 'Start progress'}
             title={isInProgress ? 'Stop' : 'Start'}
+            disabled={isResolving}
           >
             {isInProgress ? '■' : '▶'}
           </button>
 
-          {/* Delete */}
+          {/* Resolve checkbox */}
           <button
-            className="ticket-action-btn ticket-action-btn--delete"
-            onClick={() => onDelete(ticket.id)}
-            aria-label="Delete ticket"
-            title="Delete ticket"
-            disabled={isDeleting}
+            className={`ticket-resolve-btn ${isResolving ? 'ticket-resolve-btn--checked' : ''}`}
+            onClick={() => !isResolving && onResolve(ticket.id)}
+            aria-label="Mark as resolved"
+            title="Mark as resolved"
+            disabled={isResolving}
           >
-            🗑
+            {isResolving ? (
+              <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <polyline points="2,7 6,11 12,3" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <polyline points="2,7 6,11 12,3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </button>
         </div>
       </div>
+
+      {isResolving && (
+        <div className="ticket-resolved-banner">Resolved</div>
+      )}
 
       <h3 className="ticket-title">{ticket.title}</h3>
       <p className="ticket-description">{ticket.description}</p>
