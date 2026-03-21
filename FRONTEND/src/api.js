@@ -68,6 +68,13 @@ export function markCleaningIncomplete(id) {
   })
 }
 
+export function closeTicket(id) {
+  return apiFetch(`/api/tickets/${id}/close`, {
+    method: 'PUT',
+    headers: { 'x-staff-id': STAFF_ID },
+  })
+}
+
 // ── Dashboard (all at once) ───────────────────────────────────────────────────
 
 export function fetchDashboard() {

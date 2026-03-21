@@ -95,7 +95,7 @@ def init_db() -> None:
             status TEXT NOT NULL DEFAULT 'open',
             raised_by TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            resolved_at TEXT
+            resolved_at TEXT 
         );
 
         CREATE TABLE IF NOT EXISTS audit_log (
@@ -484,6 +484,22 @@ def get_open_tickets() -> list[dict]:
     ]
     conn.close()
     return tickets
+
+
+def close_ticket(ticket_id: int) -> dict:
+    """Close a ticket by setting its status to 'close'."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE tickets SET status = 'close', resolved_at = ? WHERE id = ? AND status = 'open'",
+        (datetime.utcnow().isoformat(), ticket_id),
+    )
+    conn.commit()
+    affected = cursor.rowcount
+    conn.close()
+    if affected == 0:
+        return {"status": "error", "message": f"Ticket {ticket_id} not found or already closed"}
+    return {"status": "ok", "ticket_id": ticket_id, "new_status": "close"}
 
 
 def log_audit(

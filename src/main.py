@@ -216,6 +216,18 @@ async def get_open_tickets():
     return {"tickets": tickets}
 
 
+@app.put("/api/tickets/{ticket_id}/close")
+async def close_ticket(
+    ticket_id: int,
+    x_staff_id: str | None = Header(None),
+):
+    """Close a ticket (set status to 'close')."""
+    result = db.close_ticket(ticket_id)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=404, detail=result["message"])
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Inventory endpoints (maps materials table to inventory log shape)
 # ---------------------------------------------------------------------------

@@ -69,11 +69,118 @@
   border-left: 4px solid var(--bk-low-text);
 }
 
+/* ── In-progress glow ────────────────────────────────────────────────────── */
+
+@keyframes ticket-in-progress-glow {
+  0%   { box-shadow: var(--shadow), 0 0 0 0 rgba(234, 88, 12, 0.5); }
+  50%  { box-shadow: var(--shadow), 0 0 12px 6px rgba(234, 88, 12, 0.35); }
+  100% { box-shadow: var(--shadow), 0 0 0 0 rgba(234, 88, 12, 0.5); }
+}
+
+@keyframes progress-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.75); }
+}
+
+@keyframes ticket-delete-wave {
+  0%   { opacity: 1; transform: scale(1) translateX(0); }
+  20%  { transform: scale(1.03) translateX(-4px); }
+  40%  { transform: scale(0.97) translateX(6px); }
+  60%  { transform: scale(1.01) translateX(-3px); }
+  80%  { opacity: 0.4; transform: scale(0.95) translateX(0); }
+  100% { opacity: 0; transform: scale(0.85) translateX(0); }
+}
+
+.ticket-card--in-progress {
+  animation: ticket-in-progress-glow 1.8s ease-in-out infinite;
+  border-color: #ea580c !important;
+}
+
+.ticket-card--deleting {
+  animation: ticket-delete-wave 0.9s ease-in-out forwards;
+  pointer-events: none;
+}
+
+/* ── Card header with actions ────────────────────────────────────────────── */
+
 .ticket-card-header {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.ticket-card-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Progress dot ────────────────────────────────────────────────────────── */
+
+.ticket-progress-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ea580c;
+  animation: progress-dot-pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+/* ── Action buttons ──────────────────────────────────────────────────────── */
+
+.ticket-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+
+.ticket-action-btn--progress {
+  color: #ea580c;
+}
+
+.ticket-action-btn--progress:hover {
+  background: #fff7ed;
+  border-color: #ea580c;
+}
+
+.ticket-action-btn--stop {
+  background: #fff7ed;
+  border-color: #ea580c;
+}
+
+.ticket-action-btn--delete {
+  color: var(--bk-urgent-text);
+}
+
+.ticket-action-btn--delete:hover {
+  background: var(--bk-urgent-bg);
+  border-color: var(--bk-urgent-border);
+}
+
+.ticket-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ticket-action-btn--progress:hover,
+  .ticket-action-btn--stop {
+    background: #431407;
+    border-color: #ea580c;
+  }
 }
 
 .ticket-title {
