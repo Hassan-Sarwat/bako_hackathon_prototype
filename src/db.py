@@ -8,39 +8,39 @@ from .config import DB_PATH
 
 # Default checklist items for a bakery
 SANITATION_ITEMS = [
-    "Sanitize prep surfaces",
-    "Clean oven interiors",
-    "Wash mixing bowls and utensils",
-    "Mop bakery floor",
-    "Clean display cases",
-    "Sanitize sink and drain",
-    "Empty trash bins",
-    "Wipe down equipment handles",
+    "Arbeitsflächen desinfizieren",
+    "Öfen innen reinigen",
+    "Rührschüsseln und Utensilien waschen",
+    "Bäckereiboden wischen",
+    "Vitrinen reinigen",
+    "Spülbecken und Abfluss desinfizieren",
+    "Mülleimer leeren",
+    "Gerätegriffe abwischen",
 ]
 
 INVENTORY_ITEMS = [
-    "All-purpose flour",
-    "Sugar",
+    "Weizenmehl",
+    "Zucker",
     "Butter",
-    "Eggs",
-    "Yeast",
-    "Vanilla extract",
-    "Chocolate chips",
-    "Baking powder",
+    "Eier",
+    "Hefe",
+    "Vanilleextrakt",
+    "Schokoladenstückchen",
+    "Backpulver",
 ]
 
 # Default daily cleaning tasks
 CLEANING_TASKS = [
-    {"area": "Prep surfaces", "action": "Sanitize all prep surfaces and countertops"},
-    {"area": "Ovens", "action": "Clean oven interiors and racks"},
-    {"area": "Mixing equipment", "action": "Wash mixing bowls, utensils, and attachments"},
-    {"area": "Floor", "action": "Sweep and mop bakery floor"},
-    {"area": "Display cases", "action": "Clean and sanitize display cases"},
-    {"area": "Sinks and drains", "action": "Sanitize sinks and clear drains"},
-    {"area": "Trash and recycling", "action": "Empty all trash and recycling bins"},
-    {"area": "Equipment handles", "action": "Wipe down all equipment handles and knobs"},
-    {"area": "Storage areas", "action": "Organize and clean storage shelves"},
-    {"area": "Restrooms", "action": "Clean and restock restrooms"},
+    {"area": "Arbeitsflächen", "action": "Alle Arbeitsflächen und Theken desinfizieren"},
+    {"area": "Öfen", "action": "Öfen und Roste innen reinigen"},
+    {"area": "Mischgeräte", "action": "Rührschüsseln, Utensilien und Aufsätze waschen"},
+    {"area": "Boden", "action": "Bäckereiboden kehren und wischen"},
+    {"area": "Vitrinen", "action": "Vitrinen reinigen und desinfizieren"},
+    {"area": "Spülbecken und Abflüsse", "action": "Spülbecken desinfizieren und Abflüsse reinigen"},
+    {"area": "Müll und Recycling", "action": "Alle Müll- und Recyclingbehälter leeren"},
+    {"area": "Gerätegriffe", "action": "Alle Gerätegriffe und Knöpfe abwischen"},
+    {"area": "Lagerbereiche", "action": "Lagerregale ordnen und reinigen"},
+    {"area": "Toiletten", "action": "Toiletten reinigen und auffüllen"},
 ]
 
 
