@@ -10,6 +10,7 @@ import ScheduleTab from './tabs/ScheduleTab/ScheduleTab'
 import ProductsTab from './tabs/ProductsTab/ProductsTab'
 import PurchasesTab from './tabs/PurchasesTab/PurchasesTab'
 import CookingPlanTab from './tabs/CookingPlanTab/CookingPlanTab'
+import AnalysisTab from './tabs/AnalysisTab/AnalysisTab'
 import './App.css'
 
 function useClock() {
@@ -65,6 +66,7 @@ function App() {
           {activeTab === 'products'     && <ProductsTab />}
           {activeTab === 'purchases'    && <PurchasesTab />}
           {activeTab === 'cooking-plan' && <CookingPlanTab />}
+          {activeTab === 'analysis'     && <AnalysisTab />}
         </main>
       </div>
 

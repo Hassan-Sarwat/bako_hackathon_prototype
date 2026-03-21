@@ -1,5 +1,9 @@
 """Populate the bakery database with realistic fake data in German.
 
+The seed data is designed so that purchases, cooking plans, and inventory
+are internally consistent.  A few materials intentionally have suspicious
+losses (>20 %) to make the Analysis tab demo meaningful.
+
 Usage:
     python seed_fake_data.py          # Seeds bakery.db (creates if needed)
     python seed_fake_data.py --reset  # Wipes all data first, then seeds
@@ -7,6 +11,7 @@ Usage:
 
 import json
 import random
+import re
 import sqlite3
 import sys
 from datetime import datetime, timedelta
@@ -15,6 +20,39 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 DB_PATH = Path(__file__).parent.parent.parent / "bakery.db"
+
+# ---------------------------------------------------------------------------
+# Amount parsing (duplicated from db.py so the seed script is standalone)
+# ---------------------------------------------------------------------------
+_AMOUNT_RE = re.compile(r'^([\d.,]+)\s*(.*)$')
+_UNIT_TO_BASE = {
+    'kg': ('g', 1000), 'g': ('g', 1),
+    'l': ('ml', 1000), 'ml': ('ml', 1),
+    'stück': ('Stuck', 1), 'stuck': ('Stuck', 1), 'stk': ('Stuck', 1),
+}
+
+
+def parse_amount(text: str) -> tuple[float, str]:
+    text = text.strip()
+    m = _AMOUNT_RE.match(text)
+    if not m:
+        return (0.0, '')
+    num_str = m.group(1).replace(',', '.')
+    try:
+        value = float(num_str)
+    except ValueError:
+        return (0.0, '')
+    unit = m.group(2).strip() or 'Stuck'
+    return (value, unit)
+
+
+def to_base_units(value: float, unit: str) -> tuple[float, str]:
+    key = unit.lower().rstrip('.')
+    if key in _UNIT_TO_BASE:
+        base_unit, factor = _UNIT_TO_BASE[key]
+        return (value * factor, base_unit)
+    return (value, unit)
+
 
 # ---------------------------------------------------------------------------
 # Reference date: 21.03.2026
@@ -48,34 +86,34 @@ SANITATION_ITEMS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Materials with realistic bakery counts (in kg / Stück / Liter / Packungen)
+# Materials – all raw materials the bakery uses
 # ---------------------------------------------------------------------------
-MATERIALS = [
-    ("Weizenmehl", random.randint(80, 200)),
-    ("Roggenmehl", random.randint(30, 80)),
-    ("Dinkelmehl", random.randint(20, 60)),
-    ("Zucker", random.randint(40, 100)),
-    ("Puderzucker", random.randint(10, 30)),
-    ("Butter", random.randint(20, 60)),
-    ("Eier", random.randint(100, 500)),
-    ("Hefe", random.randint(5, 25)),
-    ("Trockenhefe", random.randint(3, 15)),
-    ("Vanilleextrakt", random.randint(2, 10)),
-    ("Schokoladenstückchen", random.randint(5, 30)),
-    ("Backpulver", random.randint(5, 20)),
-    ("Sahne", random.randint(10, 40)),
-    ("Milch", random.randint(20, 60)),
-    ("Marzipanrohmasse", random.randint(5, 20)),
-    ("Mandeln gehobelt", random.randint(3, 15)),
-    ("Haselnüsse gemahlen", random.randint(3, 12)),
-    ("Rosinen", random.randint(2, 10)),
-    ("Zimt", random.randint(1, 5)),
-    ("Salz", random.randint(5, 20)),
-    ("Sonnenblumenöl", random.randint(5, 15)),
-    ("Mohn", random.randint(2, 8)),
-    ("Sesam", random.randint(2, 8)),
-    ("Kürbiskerne", random.randint(2, 10)),
-    ("Leinsamen", random.randint(2, 8)),
+MATERIAL_NAMES = [
+    "Weizenmehl",
+    "Roggenmehl",
+    "Dinkelmehl",
+    "Zucker",
+    "Puderzucker",
+    "Butter",
+    "Eier",
+    "Hefe",
+    "Trockenhefe",
+    "Vanilleextrakt",
+    "Schokoladenstückchen",
+    "Backpulver",
+    "Sahne",
+    "Milch",
+    "Marzipanrohmasse",
+    "Mandeln gehobelt",
+    "Haselnüsse gemahlen",
+    "Rosinen",
+    "Zimt",
+    "Salz",
+    "Sonnenblumenöl",
+    "Mohn",
+    "Sesam",
+    "Kürbiskerne",
+    "Leinsamen",
 ]
 
 # ---------------------------------------------------------------------------
@@ -254,6 +292,9 @@ SHIFT_PATTERNS = [
     ("12:00", "20:00"),  # Spätschicht
 ]
 
+# ---------------------------------------------------------------------------
+# Baked goods with per-unit recipe material amounts
+# ---------------------------------------------------------------------------
 BAKED_GOODS = [
     {
         "name": "Croissant",
@@ -320,36 +361,59 @@ BAKED_GOODS = [
     },
 ]
 
-RAW_PURCHASE_TEMPLATES = [
-    ("Weizenmehl", "25kg", 18.50),
-    ("Weizenmehl", "50kg", 35.00),
-    ("Roggenmehl", "25kg", 22.00),
-    ("Dinkelmehl", "10kg", 14.00),
-    ("Zucker", "25kg", 19.00),
-    ("Puderzucker", "5kg", 6.50),
-    ("Butter", "10kg", 45.00),
-    ("Butter", "20kg", 88.00),
-    ("Eier", "360 Stück", 72.00),
-    ("Eier", "180 Stück", 38.00),
-    ("Hefe", "5kg", 12.00),
-    ("Vanilleextrakt", "1L", 28.00),
-    ("Schokoladenstückchen", "5kg", 32.00),
-    ("Backpulver", "2kg", 8.00),
-    ("Sahne", "10L", 24.00),
-    ("Milch", "20L", 16.00),
-    ("Marzipanrohmasse", "5kg", 42.00),
-    ("Mandeln gehobelt", "2kg", 24.00),
-    ("Haselnüsse gemahlen", "2kg", 22.00),
-    ("Rosinen", "2kg", 9.00),
-    ("Mohn", "1kg", 11.00),
-    ("Sesam", "1kg", 7.00),
-    ("Salz", "10kg", 4.00),
-    ("Sonnenblumenöl", "5L", 8.50),
-]
+# ---------------------------------------------------------------------------
+# Purchase templates: what a single order looks like for each material
+# (material_name, amount_text, base_price_for_that_amount)
+# ---------------------------------------------------------------------------
+RAW_PURCHASE_TEMPLATES = {
+    "Weizenmehl":           ("25kg", 18.50),
+    "Roggenmehl":           ("25kg", 22.00),
+    "Dinkelmehl":           ("10kg", 14.00),
+    "Zucker":               ("25kg", 19.00),
+    "Puderzucker":          ("5kg",   6.50),
+    "Butter":               ("10kg", 45.00),
+    "Eier":                 ("360 Stück", 72.00),
+    "Hefe":                 ("5kg",  12.00),
+    "Trockenhefe":          ("1kg",   8.00),
+    "Vanilleextrakt":       ("1L",   28.00),
+    "Schokoladenstückchen": ("5kg",  32.00),
+    "Backpulver":           ("2kg",   8.00),
+    "Sahne":                ("10L",  24.00),
+    "Milch":                ("20L",  16.00),
+    "Marzipanrohmasse":     ("5kg",  42.00),
+    "Mandeln gehobelt":     ("2kg",  24.00),
+    "Haselnüsse gemahlen":  ("2kg",  22.00),
+    "Rosinen":              ("2kg",   9.00),
+    "Zimt":                 ("500g",  6.00),
+    "Salz":                 ("10kg",  4.00),
+    "Sonnenblumenöl":       ("5L",    8.50),
+    "Mohn":                 ("1kg",  11.00),
+    "Sesam":                ("1kg",   7.00),
+    "Kürbiskerne":          ("2kg",  12.00),
+    "Leinsamen":            ("2kg",   7.00),
+}
 
+# Materials that should show suspicious loss in the demo.
+# Purchases cover usage normally, but inventory is mysteriously near zero.
+# The analysis will flag: purchased - expected_usage = expected_remaining,
+# but actual inventory ≈ 0  →  unaccounted_loss ≈ expected_remaining.
+LOSS_MATERIALS = {
+    "Butter",               # expensive — high monetary loss
+    "Eier",                 # noticeable loss in pieces
+    "Schokoladenstückchen", # significant shortage
+    "Vanilleextrakt",       # very expensive per unit — small volume, big € impact
+}
+
+# All materials get purchases covering usage + 5-15% buffer
+PURCHASE_COVER_RANGE = (1.05, 1.15)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Table creation
+# ═══════════════════════════════════════════════════════════════════════════
 
 def create_tables(cursor: sqlite3.Cursor) -> None:
-    """Ensure all tables exist (mirrors src/db.py schema)."""
+    """Ensure all tables exist (mirrors src/db.py schema + new columns)."""
     cursor.executescript("""
         CREATE TABLE IF NOT EXISTS checklist_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -420,6 +484,8 @@ def create_tables(cursor: sqlite3.Cursor) -> None:
             product_id INTEGER NOT NULL,
             material_id INTEGER NOT NULL,
             amount TEXT NOT NULL,
+            amount_value REAL,
+            amount_unit TEXT,
             FOREIGN KEY (product_id) REFERENCES baked_goods(id) ON DELETE CASCADE,
             FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE,
             UNIQUE(product_id, material_id)
@@ -428,6 +494,8 @@ def create_tables(cursor: sqlite3.Cursor) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             material_id INTEGER NOT NULL,
             amount TEXT NOT NULL,
+            amount_value REAL,
+            amount_unit TEXT,
             price REAL NOT NULL,
             purchase_date TEXT NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -445,8 +513,11 @@ def create_tables(cursor: sqlite3.Cursor) -> None:
     """)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Seed helpers (unchanged from before)
+# ═══════════════════════════════════════════════════════════════════════════
+
 def seed_checklist_items(cursor: sqlite3.Cursor) -> None:
-    """Seed sanitation checklist – some completed, some not."""
     notes_options = [
         "Mit Desinfektionsmittel gereinigt",
         "Gründlich geputzt",
@@ -454,7 +525,6 @@ def seed_checklist_items(cursor: sqlite3.Cursor) -> None:
         "Alles sauber",
         None,
     ]
-
     for item in SANITATION_ITEMS:
         completed = random.random() < 0.5
         staff = random.choice(STAFF) if completed else None
@@ -465,80 +535,64 @@ def seed_checklist_items(cursor: sqlite3.Cursor) -> None:
             "VALUES (?, ?, ?, ?, ?, ?)",
             ("sanitation", item, int(completed), completed_at, staff, notes),
         )
-    print(f"  checklist_items: {len(SANITATION_ITEMS)} Einträge eingefügt")
+    print(f"  checklist_items: {len(SANITATION_ITEMS)} rows")
 
 
 def seed_materials(cursor: sqlite3.Cursor) -> None:
-    """Seed materials with realistic counts and recent update timestamps."""
-    for item_name, count in MATERIALS:
-        days_ago = random.randint(0, 5)
+    """Seed materials – counts will be updated later once we know usage."""
+    for item_name in MATERIAL_NAMES:
+        days_ago = random.randint(0, 3)
         updated = TODAY - timedelta(days=days_ago)
         cursor.execute(
             "INSERT OR REPLACE INTO materials (item_name, count, updated_at, updated_by) "
             "VALUES (?, ?, ?, ?)",
-            (item_name, count, random_time(updated), random.choice(STAFF)),
+            (item_name, 0, random_time(updated), random.choice(STAFF)),
         )
-    print(f"  materials: {len(MATERIALS)} Einträge eingefügt")
+    print(f"  materials: {len(MATERIAL_NAMES)} rows")
 
 
 def seed_cleaning_tasks(cursor: sqlite3.Cursor) -> None:
-    """Seed cleaning tasks for the past 7 days + today."""
     total = 0
-    for days_back in range(7, -1, -1):  # 7 days ago → today
+    for days_back in range(7, -1, -1):
         task_date = (TODAY - timedelta(days=days_back)).date().isoformat()
         is_today = days_back == 0
-
         for task in CLEANING_TASKS:
-            if is_today:
-                # Today: ~40% done so far (it's mid-morning)
-                completed = random.random() < 0.4
-            else:
-                # Past days: ~90% completed
-                completed = random.random() < 0.9
-
+            completed = random.random() < (0.4 if is_today else 0.9)
             staff = random.choice(STAFF) if completed else None
             day_dt = TODAY - timedelta(days=days_back)
             completed_at = random_time(day_dt, (5, 16)) if completed else None
             notes = random.choice(["Erledigt", "Gründlich gemacht", "Alles sauber", None]) if completed else None
-
             cursor.execute(
                 "INSERT INTO cleaning_tasks (task_date, area, action, is_complete, completed_at, completed_by, notes) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (task_date, task["area"], task["action"], int(completed), completed_at, staff, notes),
             )
             total += 1
-    print(f"  cleaning_tasks: {total} Einträge eingefügt (8 Tage)")
+    print(f"  cleaning_tasks: {total} rows (8 days)")
 
 
 def seed_tickets(cursor: sqlite3.Cursor) -> None:
-    """Seed tickets – mix of open and resolved."""
-    for i, t in enumerate(TICKET_TEMPLATES):
+    for t in TICKET_TEMPLATES:
         days_ago = random.randint(0, 10)
         created = TODAY - timedelta(days=days_ago)
         created_at = random_time(created, (6, 17))
         staff = random.choice(STAFF)
-
-        # Older tickets are more likely resolved
         resolved = days_ago > 3 and random.random() < 0.7
         status = "resolved" if resolved else "open"
         resolved_at = random_time(created + timedelta(days=random.randint(1, 3)), (8, 17)) if resolved else None
-
         cursor.execute(
             "INSERT INTO tickets (title, description, category, urgency, status, raised_by, created_at, resolved_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (t["title"], t["description"], t["category"], t["urgency"], status, staff, created_at, resolved_at),
         )
-    print(f"  tickets: {len(TICKET_TEMPLATES)} Einträge eingefügt")
+    print(f"  tickets: {len(TICKET_TEMPLATES)} rows")
 
 
 def seed_audit_log(cursor: sqlite3.Cursor) -> None:
-    """Seed audit log with realistic voice interactions over the past few days."""
     total = 0
     for days_back in range(5, -1, -1):
         day_dt = TODAY - timedelta(days=days_back)
-        # 5-15 interactions per day
-        n_interactions = random.randint(5, 15)
-        for _ in range(n_interactions):
+        for _ in range(random.randint(5, 15)):
             interaction = random.choice(AUDIT_INTERACTIONS)
             staff = random.choice(STAFF)
             cursor.execute(
@@ -556,29 +610,21 @@ def seed_audit_log(cursor: sqlite3.Cursor) -> None:
                 ),
             )
             total += 1
-    print(f"  audit_log: {total} Einträge eingefügt (6 Tage)")
+    print(f"  audit_log: {total} rows (6 days)")
 
 
 def seed_schedules(cursor: sqlite3.Cursor) -> None:
-    """Seed schedules for current week + next week (Mon-Sat)."""
     total = 0
-    # Find Monday of the current week
     today = TODAY.date()
     monday = today - timedelta(days=today.weekday())
-
-    for week_offset in range(3):  # previous week, this week, next week
+    for week_offset in range(3):
         week_start = monday + timedelta(weeks=week_offset - 1)
-        for day_offset in range(6):  # Mon-Sat (bakery closed Sunday)
+        for day_offset in range(6):
             day = week_start + timedelta(days=day_offset)
             day_str = day.isoformat()
-
-            # Schedule 3-5 employees per day
             n_employees = random.randint(3, 5)
             day_employees = random.sample(EMPLOYEE_NAMES, n_employees)
-
-            # One person gets cleaning duty
             cleaning_person = random.choice(day_employees)
-
             for emp in day_employees:
                 shift = random.choice(SHIFT_PATTERNS)
                 cleaning = 1 if emp == cleaning_person else 0
@@ -588,13 +634,15 @@ def seed_schedules(cursor: sqlite3.Cursor) -> None:
                     (emp, day_str, shift[0], shift[1], cleaning),
                 )
                 total += 1
+    print(f"  schedules: {total} rows (3 weeks)")
 
-    print(f"  schedules: {total} Einträge eingefügt (3 Wochen)")
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Coherent baked goods → cooking plans → purchases → inventory
+# ═══════════════════════════════════════════════════════════════════════════
 
 def seed_baked_goods(cursor: sqlite3.Cursor) -> None:
-    """Seed baked goods with recipes and material links."""
-    # First build a material name → id map
+    """Seed baked goods with recipes and material links (incl. parsed amounts)."""
     cursor.execute("SELECT id, item_name FROM materials")
     mat_map = {row[1]: row[0] for row in cursor.fetchall()}
 
@@ -606,65 +654,54 @@ def seed_baked_goods(cursor: sqlite3.Cursor) -> None:
         cursor.execute("SELECT id FROM baked_goods WHERE name = ?", (bg["name"],))
         product_id = cursor.fetchone()[0]
 
-        for mat_name, amount in bg["materials"]:
+        for mat_name, amount_text in bg["materials"]:
             if mat_name in mat_map:
+                val, unit = parse_amount(amount_text)
+                bval, bunit = to_base_units(val, unit)
                 cursor.execute(
-                    "INSERT OR IGNORE INTO product_materials (product_id, material_id, amount) "
-                    "VALUES (?, ?, ?)",
-                    (product_id, mat_map[mat_name], amount),
+                    "INSERT OR IGNORE INTO product_materials "
+                    "(product_id, material_id, amount, amount_value, amount_unit) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (product_id, mat_map[mat_name], amount_text, bval, bunit),
                 )
-
-    print(f"  baked_goods: {len(BAKED_GOODS)} Produkte mit Rezepten eingefügt")
-
-
-def seed_raw_purchases(cursor: sqlite3.Cursor) -> None:
-    """Seed raw material purchases over the past 30 days."""
-    cursor.execute("SELECT id, item_name FROM materials")
-    mat_map = {row[1]: row[0] for row in cursor.fetchall()}
-
-    total = 0
-    for days_back in range(30, -1, -1):
-        # 0-3 purchases per day
-        n_purchases = random.randint(0, 3)
-        purchase_date = (TODAY - timedelta(days=days_back)).date().isoformat()
-
-        for _ in range(n_purchases):
-            template = random.choice(RAW_PURCHASE_TEMPLATES)
-            mat_name, amount, base_price = template
-            if mat_name not in mat_map:
-                continue
-            # Add some price variation (±15%)
-            price = round(base_price * random.uniform(0.85, 1.15), 2)
-            cursor.execute(
-                "INSERT INTO raw_purchases (material_id, amount, price, purchase_date) "
-                "VALUES (?, ?, ?, ?)",
-                (mat_map[mat_name], amount, price, purchase_date),
-            )
-            total += 1
-
-    print(f"  raw_purchases: {total} Einträge eingefügt (30 Tage)")
+    print(f"  baked_goods: {len(BAKED_GOODS)} products with recipes")
 
 
-def seed_cooking_plans(cursor: sqlite3.Cursor) -> None:
-    """Seed cooking plans for the past 2 weeks + today."""
+def seed_cooking_plans(cursor: sqlite3.Cursor) -> dict[str, float]:
+    """Seed cooking plans for the past 2 weeks + today.
+
+    Returns a dict of material_name → total expected usage in base units,
+    so that purchases and inventory can be generated consistently.
+    """
     cursor.execute("SELECT id, name FROM baked_goods")
     products = cursor.fetchall()
     if not products:
-        print("  cooking_plans: Keine Produkte vorhanden, übersprungen")
-        return
+        print("  cooking_plans: no products, skipped")
+        return {}
 
+    # Build recipe lookup: product_id -> [(material_name, base_value, base_unit)]
+    cursor.execute(
+        "SELECT pm.product_id, m.item_name, pm.amount_value, pm.amount_unit "
+        "FROM product_materials pm JOIN materials m ON pm.material_id = m.id"
+    )
+    recipe_map: dict[int, list[tuple[str, float, str]]] = {}
+    for row in cursor.fetchall():
+        pid = row[0]
+        recipe_map.setdefault(pid, []).append((row[1], row[2] or 0.0, row[3] or ""))
+
+    # Accumulate total expected usage per material
+    total_usage: dict[str, float] = {}  # material_name -> base units
     total = 0
+
     for days_back in range(14, -1, -1):
         plan_date = (TODAY - timedelta(days=days_back)).date().isoformat()
-        # Plan 3-6 products per day
         n_products = random.randint(3, min(6, len(products)))
         day_products = random.sample(products, n_products)
 
         for prod_id, prod_name in day_products:
-            # Realistic quantities
             if prod_name in ("Croissant", "Brezeln", "Sesambrötchen"):
                 qty = random.randint(50, 150)
-            elif prod_name in ("Vanillekipferl",):
+            elif prod_name == "Vanillekipferl":
                 qty = random.randint(80, 200)
             else:
                 qty = random.randint(10, 40)
@@ -676,25 +713,167 @@ def seed_cooking_plans(cursor: sqlite3.Cursor) -> None:
             )
             total += 1
 
-    print(f"  cooking_plans: {total} Einträge eingefügt (15 Tage)")
+            # Accumulate usage
+            for mat_name, base_val, _ in recipe_map.get(prod_id, []):
+                total_usage[mat_name] = total_usage.get(mat_name, 0.0) + base_val * qty
 
+    print(f"  cooking_plans: {total} rows (15 days)")
+    return total_usage
+
+
+def seed_raw_purchases(
+    cursor: sqlite3.Cursor,
+    total_usage: dict[str, float],
+) -> dict[str, float]:
+    """Seed purchases that are coherent with cooking plan usage.
+
+    - For most materials: purchases cover usage + 5-15 % normal waste.
+    - For LOSS_MATERIALS: purchases only cover a fraction of usage (demo flag).
+
+    Returns dict of material_name → total purchased (base units).
+    """
+    cursor.execute("SELECT id, item_name FROM materials")
+    mat_map = {row[1]: row[0] for row in cursor.fetchall()}
+
+    total_purchased: dict[str, float] = {}
+    total_rows = 0
+
+    for mat_name, expected_base in total_usage.items():
+        if mat_name not in mat_map:
+            continue
+        mid = mat_map[mat_name]
+        template = RAW_PURCHASE_TEMPLATES.get(mat_name)
+        if not template:
+            continue
+
+        order_text, order_base_price = template
+        order_val, order_unit = parse_amount(order_text)
+        order_base_val, order_base_unit = to_base_units(order_val, order_unit)
+        if order_base_val <= 0:
+            continue
+
+        # All materials get enough purchases to cover usage + small buffer.
+        # The loss for LOSS_MATERIALS shows up via low inventory, not low purchases.
+        cover_ratio = random.uniform(*PURCHASE_COVER_RANGE)
+
+        target_purchased = expected_base * cover_ratio
+
+        # How many orders needed? (at least 1)
+        n_orders = max(1, round(target_purchased / order_base_val))
+
+        # Spread orders over the last 14 days
+        purchased_total = 0.0
+        for _ in range(n_orders):
+            days_back = random.randint(0, 14)
+            purchase_date = (TODAY - timedelta(days=days_back)).date().isoformat()
+
+            # Slight price variation ±10 %
+            price = round(order_base_price * random.uniform(0.90, 1.10), 2)
+
+            cursor.execute(
+                "INSERT INTO raw_purchases "
+                "(material_id, amount, amount_value, amount_unit, price, purchase_date) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (mid, order_text, order_base_val, order_base_unit, price, purchase_date),
+            )
+            purchased_total += order_base_val
+            total_rows += 1
+
+        total_purchased[mat_name] = purchased_total
+
+    # Also add a handful of purchases for materials NOT used in any recipe
+    # (e.g. Sahne, Zimt, Trockenhefe) so the purchases tab isn't empty for them
+    unused_in_recipes = set(mat_map.keys()) - set(total_usage.keys())
+    for mat_name in unused_in_recipes:
+        template = RAW_PURCHASE_TEMPLATES.get(mat_name)
+        if not template:
+            continue
+        # 1-2 random purchases in the last 2 weeks
+        for _ in range(random.randint(1, 2)):
+            order_text, order_base_price = template
+            order_val, order_unit = parse_amount(order_text)
+            order_base_val, order_base_unit = to_base_units(order_val, order_unit)
+            days_back = random.randint(0, 14)
+            purchase_date = (TODAY - timedelta(days=days_back)).date().isoformat()
+            price = round(order_base_price * random.uniform(0.90, 1.10), 2)
+            cursor.execute(
+                "INSERT INTO raw_purchases "
+                "(material_id, amount, amount_value, amount_unit, price, purchase_date) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (mat_map[mat_name], order_text, order_base_val, order_base_unit, price, purchase_date),
+            )
+            total_purchased[mat_name] = total_purchased.get(mat_name, 0.0) + order_base_val
+            total_rows += 1
+
+    print(f"  raw_purchases: {total_rows} rows (14 days)")
+    return total_purchased
+
+
+def update_material_counts(
+    cursor: sqlite3.Cursor,
+    total_usage: dict[str, float],
+    total_purchased: dict[str, float],
+) -> None:
+    """Set material inventory counts in BASE UNITS (g, ml, or Stück).
+
+    All three numbers share the same unit:
+        purchased (base units) - expected_usage (base units) = expected_remaining
+        actual_inventory (base units) = expected_remaining - unaccounted_loss
+
+    For normal materials:  inventory ≈ expected_remaining (small random variance)
+    For LOSS_MATERIALS:    inventory is near zero or very low, making the
+                           unaccounted loss clearly visible in the analysis.
+    """
+    cursor.execute("SELECT id, item_name FROM materials")
+    mat_map = {row[1]: row[0] for row in cursor.fetchall()}
+
+    for mat_name, mid in mat_map.items():
+        purchased = total_purchased.get(mat_name, 0.0)
+        used = total_usage.get(mat_name, 0.0)
+        expected_remaining = purchased - used
+
+        if mat_name in LOSS_MATERIALS:
+            # These materials have mysteriously low inventory.
+            # Inventory is only 0-10% of expected_remaining → big unaccounted loss.
+            count = round(max(0, expected_remaining * random.uniform(0.0, 0.10)))
+        elif purchased > 0 and used > 0:
+            # Normal materials: inventory ≈ expected_remaining with small variance (±5%)
+            variance = random.uniform(-0.05, 0.05) * expected_remaining
+            count = round(max(0, expected_remaining + variance))
+        else:
+            # Materials not used in recipes — just some stock on hand
+            count = round(purchased * random.uniform(0.5, 0.9)) if purchased > 0 else random.randint(500, 5000)
+
+        days_ago = random.randint(0, 2)
+        updated = TODAY - timedelta(days=days_ago)
+        cursor.execute(
+            "UPDATE materials SET count = ?, updated_at = ?, updated_by = ? WHERE id = ?",
+            (count, random_time(updated), random.choice(STAFF), mid),
+        )
+
+    print(f"  materials: counts updated for {len(mat_map)} items (base units)")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Main
+# ═══════════════════════════════════════════════════════════════════════════
 
 def main() -> None:
     reset = "--reset" in sys.argv
 
-    print(f"Datenbank: {DB_PATH}")
-    print(f"Datum: {TODAY_DATE}")
+    print(f"Database: {DB_PATH}")
+    print(f"Date:     {TODAY_DATE}")
     print()
 
     conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    cursor.execute("PRAGMA foreign_keys = ON")
 
     create_tables(cursor)
 
-    cursor.execute("PRAGMA foreign_keys = ON")
-
     if reset:
-        print("Lösche vorhandene Daten ...")
+        print("Deleting existing data ...")
         for table in [
             "cooking_plans", "raw_purchases", "product_materials", "baked_goods",
             "schedules", "checklist_items", "materials", "cleaning_tasks",
@@ -703,7 +882,7 @@ def main() -> None:
             cursor.execute(f"DELETE FROM {table}")
         print()
 
-    print("Füge Fake-Daten ein ...")
+    print("Seeding data ...")
     seed_checklist_items(cursor)
     seed_materials(cursor)
     seed_cleaning_tasks(cursor)
@@ -711,13 +890,34 @@ def main() -> None:
     seed_audit_log(cursor)
     seed_schedules(cursor)
     seed_baked_goods(cursor)
-    seed_raw_purchases(cursor)
-    seed_cooking_plans(cursor)
+
+    # These three are tightly coupled for consistency
+    total_usage = seed_cooking_plans(cursor)
+    total_purchased = seed_raw_purchases(cursor, total_usage)
+    update_material_counts(cursor, total_usage, total_purchased)
+
+    # Read back inventory for summary
+    cursor.execute("SELECT item_name, count FROM materials")
+    inventory = {row[0]: row[1] for row in cursor.fetchall()}
 
     conn.commit()
     conn.close()
     print()
-    print("Fertig! Datenbank wurde mit Testdaten befüllt.")
+    print("Done! Database seeded with coherent test data.")
+    print()
+
+    # Print a summary of the analysis scenario
+    print("=== Analysis scenario summary ===")
+    print(f"  {'Material':<23} {'Purchased':>10} {'Expected':>10} {'Inventory':>10} {'Unaccounted':>12}  Flag")
+    print("  " + "-" * 80)
+    for mat_name in sorted(total_usage.keys()):
+        expected = total_usage[mat_name]
+        purchased = total_purchased.get(mat_name, 0.0)
+        inv = inventory.get(mat_name, 0)
+        expected_remaining = purchased - expected
+        unaccounted = expected_remaining - inv
+        flag = " !!!" if mat_name in LOSS_MATERIALS and unaccounted > 0 else ""
+        print(f"  {mat_name:<23} {purchased:>10.0f} {expected:>10.0f} {inv:>10} {unaccounted:>+11.0f}{flag}")
 
 
 if __name__ == "__main__":

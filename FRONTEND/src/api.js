@@ -203,6 +203,28 @@ export function fetchMaterials() {
   return apiFetch('/api/materials').then(d => d.materials)
 }
 
+// ── Analysis ─────────────────────────────────────────────────────────────────
+
+export function fetchMaterialUsageAnalysis({ start_date, end_date }) {
+  const q = new URLSearchParams({ start_date, end_date })
+  return apiFetch(`/api/analysis/material-usage?${q}`).then(d => d.materials)
+}
+
+export function fetchMaterialDrilldown(materialId, { start_date, end_date }) {
+  const q = new URLSearchParams({ start_date, end_date })
+  return apiFetch(`/api/analysis/material-drilldown/${materialId}?${q}`).then(d => d.entries)
+}
+
+export function fetchProductLossAnalysis({ start_date, end_date }) {
+  const q = new URLSearchParams({ start_date, end_date })
+  return apiFetch(`/api/analysis/product-loss?${q}`).then(d => d.products)
+}
+
+export function fetchProductLossDrilldown(productId, { start_date, end_date }) {
+  const q = new URLSearchParams({ start_date, end_date })
+  return apiFetch(`/api/analysis/product-loss-drilldown/${productId}?${q}`).then(d => d.entries)
+}
+
 // ── Dashboard (all at once) ───────────────────────────────────────────────────
 
 export function fetchDashboard() {

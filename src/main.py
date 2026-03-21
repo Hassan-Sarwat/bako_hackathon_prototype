@@ -572,6 +572,37 @@ async def get_audit_log(
 
 
 # ---------------------------------------------------------------------------
+# Analysis endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/analysis/material-usage")
+async def get_material_usage_analysis(start_date: str, end_date: str):
+    """Analyse expected material usage from cooking plans vs actual purchases."""
+    materials = db.get_material_usage_analysis(start_date, end_date)
+    return {"materials": materials}
+
+
+@app.get("/api/analysis/material-drilldown/{material_id}")
+async def get_material_drilldown(material_id: int, start_date: str, end_date: str):
+    """Get per-day cooking plan breakdown for a specific material."""
+    entries = db.get_material_drilldown(material_id, start_date, end_date)
+    return {"entries": entries}
+
+
+@app.get("/api/analysis/product-loss")
+async def get_product_loss_analysis(start_date: str, end_date: str):
+    """Analyse material losses attributed to each product/recipe."""
+    products = db.get_product_loss_analysis(start_date, end_date)
+    return {"products": products}
+
+
+@app.get("/api/analysis/product-loss-drilldown/{product_id}")
+async def get_product_loss_drilldown(product_id: int, start_date: str, end_date: str):
+    """Get per-material loss breakdown for a specific product."""
+    entries = db.get_product_loss_drilldown(product_id, start_date, end_date)
+    return {"entries": entries}
+
+
+# ---------------------------------------------------------------------------
 # Utility endpoints
 # ---------------------------------------------------------------------------
 @app.post("/api/checklists/reset")

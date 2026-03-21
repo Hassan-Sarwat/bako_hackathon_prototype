@@ -1,10 +1,57 @@
 """SQLite database setup, schema, seed data, and query helpers."""
 
+import re
 import sqlite3
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from .config import DB_PATH
+
+
+# ---------------------------------------------------------------------------
+# Amount parsing helpers
+# ---------------------------------------------------------------------------
+
+_AMOUNT_RE = re.compile(r'^([\d.,]+)\s*(.*)$')
+
+_UNIT_TO_BASE = {
+    'kg': ('g', 1000),
+    'g': ('g', 1),
+    'l': ('ml', 1000),
+    'ml': ('ml', 1),
+    'stück': ('Stuck', 1),
+    'stuck': ('Stuck', 1),
+    'stk': ('Stuck', 1),
+}
+
+
+def parse_amount(text: str) -> tuple[float, str]:
+    """Parse a text amount like '200g' or '2,5 kg' into (value, unit).
+
+    Handles German comma-as-decimal (e.g. '2,5' → 2.5).
+    Returns (0.0, '') if parsing fails.
+    """
+    text = text.strip()
+    m = _AMOUNT_RE.match(text)
+    if not m:
+        return (0.0, '')
+    num_str = m.group(1).replace(',', '.')
+    try:
+        value = float(num_str)
+    except ValueError:
+        return (0.0, '')
+    unit = m.group(2).strip() or 'Stuck'
+    return (value, unit)
+
+
+def to_base_units(value: float, unit: str) -> tuple[float, str]:
+    """Normalize a value+unit to base units (g, ml, or Stuck)."""
+    key = unit.lower().rstrip('.')
+    if key in _UNIT_TO_BASE:
+        base_unit, factor = _UNIT_TO_BASE[key]
+        return (value * factor, base_unit)
+    # Unknown unit — pass through as-is
+    return (value, unit)
 
 # Default checklist items for a bakery
 SANITATION_ITEMS = [
@@ -178,8 +225,31 @@ def init_db() -> None:
                 (item,),
             )
 
+    # --- Migration: add amount_value / amount_unit columns ----------------
+    _migrate_amount_columns(cursor)
+
     conn.commit()
     conn.close()
+
+
+def _migrate_amount_columns(cursor: sqlite3.Cursor) -> None:
+    """Add amount_value and amount_unit columns to product_materials and
+    raw_purchases if they don't exist, then backfill from the text amount."""
+    for table in ("product_materials", "raw_purchases"):
+        cols = {row[1] for row in cursor.execute(f"PRAGMA table_info({table})")}
+        if "amount_value" not in cols:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN amount_value REAL")
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN amount_unit TEXT")
+
+        # Backfill rows that haven't been parsed yet
+        cursor.execute(f"SELECT id, amount FROM {table} WHERE amount_value IS NULL")
+        for row in cursor.fetchall():
+            val, unit = parse_amount(row["amount"])
+            val, unit = to_base_units(val, unit)
+            cursor.execute(
+                f"UPDATE {table} SET amount_value = ?, amount_unit = ? WHERE id = ?",
+                (val, unit, row["id"]),
+            )
 
 
 def get_all_checklist_items(checklist_type: str) -> list[dict]:
@@ -607,6 +677,159 @@ def get_audit_log(limit: int = 50, staff_id: str | None = None) -> list[dict]:
     return entries
 
 
+def get_product_loss_analysis(start_date: str, end_date: str) -> list[dict]:
+    """Analyse material losses attributed to each product/recipe.
+
+    Uses proportional attribution: each material's unaccounted loss is
+    distributed across products based on their share of that material's
+    total expected usage.
+    """
+    # 1. Get per-material loss data from existing analysis
+    material_losses = get_material_usage_analysis(start_date, end_date)
+    loss_by_mid = {
+        m["material_id"]: m for m in material_losses
+    }
+
+    # 2. Get per-(product, material) expected usage
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT cp.product_id, bg.name AS product_name, bg.price AS product_price, "
+        "pm.material_id, pm.amount_value, pm.amount_unit, "
+        "SUM(cp.quantity) AS total_quantity "
+        "FROM cooking_plans cp "
+        "JOIN product_materials pm ON cp.product_id = pm.product_id "
+        "JOIN baked_goods bg ON cp.product_id = bg.id "
+        "WHERE cp.plan_date BETWEEN ? AND ? AND pm.amount_value IS NOT NULL "
+        "GROUP BY cp.product_id, pm.material_id",
+        (start_date, end_date),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+
+    # 3. Compute total expected usage per material (across all products)
+    total_usage_by_mid: dict[int, float] = {}
+    for row in rows:
+        mid = row["material_id"]
+        usage = row["amount_value"] * row["total_quantity"]
+        total_usage_by_mid[mid] = total_usage_by_mid.get(mid, 0.0) + usage
+
+    # 4. Attribute losses per product
+    products: dict[int, dict] = {}
+    for row in rows:
+        pid = row["product_id"]
+        mid = row["material_id"]
+        mat = loss_by_mid.get(mid)
+        if not mat:
+            continue  # material was skipped in analysis (incompatible units, etc.)
+
+        usage = row["amount_value"] * row["total_quantity"]
+        total_usage = total_usage_by_mid.get(mid, 0.0)
+        share = usage / total_usage if total_usage > 0 else 0.0
+        attributed = max(0.0, mat["unaccounted_loss"]) * mat["unit_price"] * share
+
+        if pid not in products:
+            products[pid] = {
+                "product_id": pid,
+                "product_name": row["product_name"],
+                "product_price": row["product_price"] or 0.0,
+                "total_units_planned": row["total_quantity"],
+                "materials_count": 0,
+                "attributed_loss_value": 0.0,
+                "_material_ids": set(),
+            }
+
+        products[pid]["attributed_loss_value"] += attributed
+        products[pid]["_material_ids"].add(mid)
+
+    # 5. Finalise results
+    results: list[dict] = []
+    for p in products.values():
+        p["materials_count"] = len(p.pop("_material_ids"))
+        total_units = p["total_units_planned"]
+        loss_val = p["attributed_loss_value"]
+        price = p["product_price"]
+
+        p["attributed_loss_value"] = round(loss_val, 2)
+        p["loss_per_unit"] = round(loss_val / total_units, 4) if total_units > 0 else 0.0
+        p["loss_pct_of_price"] = round(
+            (p["loss_per_unit"] / price * 100) if price > 0 else 0.0, 1
+        )
+        p["flagged"] = p["loss_pct_of_price"] > 20
+        results.append(p)
+
+    results.sort(key=lambda r: r["attributed_loss_value"], reverse=True)
+    return results
+
+
+def get_product_loss_drilldown(
+    product_id: int, start_date: str, end_date: str
+) -> list[dict]:
+    """Get per-material loss breakdown for a specific product."""
+    # 1. Get per-material loss data
+    material_losses = get_material_usage_analysis(start_date, end_date)
+    loss_by_mid = {m["material_id"]: m for m in material_losses}
+
+    # 2. Get this product's usage of each material
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT pm.material_id, m.item_name AS material_name, "
+        "pm.amount_value, pm.amount_unit, "
+        "SUM(cp.quantity) AS total_quantity "
+        "FROM cooking_plans cp "
+        "JOIN product_materials pm ON cp.product_id = pm.product_id "
+        "JOIN materials m ON pm.material_id = m.id "
+        "WHERE cp.product_id = ? AND cp.plan_date BETWEEN ? AND ? "
+        "AND pm.amount_value IS NOT NULL "
+        "GROUP BY pm.material_id",
+        (product_id, start_date, end_date),
+    )
+    rows = cursor.fetchall()
+
+    # 3. Get total usage per material across all products (for share calculation)
+    cursor.execute(
+        "SELECT pm.material_id, SUM(pm.amount_value * cp.quantity) AS total_usage "
+        "FROM cooking_plans cp "
+        "JOIN product_materials pm ON cp.product_id = pm.product_id "
+        "WHERE cp.plan_date BETWEEN ? AND ? AND pm.amount_value IS NOT NULL "
+        "GROUP BY pm.material_id",
+        (start_date, end_date),
+    )
+    total_usage_by_mid = {
+        row["material_id"]: row["total_usage"] for row in cursor.fetchall()
+    }
+    conn.close()
+
+    # 4. Build per-material breakdown
+    entries: list[dict] = []
+    for row in rows:
+        mid = row["material_id"]
+        mat = loss_by_mid.get(mid)
+        if not mat:
+            continue
+
+        product_usage = row["amount_value"] * row["total_quantity"]
+        total_usage = total_usage_by_mid.get(mid, 0.0)
+        share = product_usage / total_usage if total_usage > 0 else 0.0
+        loss_qty = max(0.0, mat["unaccounted_loss"]) * share
+        loss_val = loss_qty * mat["unit_price"]
+
+        entries.append({
+            "material_id": mid,
+            "material_name": row["material_name"],
+            "unit": row["amount_unit"] or "",
+            "expected_usage": round(product_usage, 2),
+            "material_total_loss": round(max(0.0, mat["unaccounted_loss"]), 2),
+            "product_share_pct": round(share * 100, 1),
+            "attributed_loss_qty": round(loss_qty, 2),
+            "attributed_loss_value": round(loss_val, 2),
+        })
+
+    entries.sort(key=lambda e: e["attributed_loss_value"], reverse=True)
+    return entries
+
+
 def log_conversation(
     staff_id: str | None = None,
     user_message: str | None = None,
@@ -872,9 +1095,12 @@ def set_product_materials(product_id: int, materials: list[dict]) -> dict:
     cursor = conn.cursor()
     cursor.execute("DELETE FROM product_materials WHERE product_id = ?", (product_id,))
     for mat in materials:
+        val, unit = parse_amount(mat["amount"])
+        val, unit = to_base_units(val, unit)
         cursor.execute(
-            "INSERT INTO product_materials (product_id, material_id, amount) VALUES (?, ?, ?)",
-            (product_id, mat["material_id"], mat["amount"]),
+            "INSERT INTO product_materials (product_id, material_id, amount, amount_value, amount_unit) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (product_id, mat["material_id"], mat["amount"], val, unit),
         )
     conn.commit()
     conn.close()
@@ -933,12 +1159,15 @@ def create_raw_purchase(
     material_id: int, amount: str, price: float, purchase_date: str
 ) -> dict:
     """Create a new raw material purchase."""
+    val, unit = parse_amount(amount)
+    val, unit = to_base_units(val, unit)
     conn = get_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO raw_purchases (material_id, amount, price, purchase_date) VALUES (?, ?, ?, ?)",
-            (material_id, amount, price, purchase_date),
+            "INSERT INTO raw_purchases (material_id, amount, price, purchase_date, amount_value, amount_unit) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (material_id, amount, price, purchase_date, val, unit),
         )
         purchase_id = cursor.lastrowid
         conn.commit()
@@ -955,6 +1184,12 @@ def update_raw_purchase(purchase_id: int, **fields) -> dict:
     updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
     if not updates:
         return {"status": "error", "message": "No valid fields to update"}
+    # Keep parsed columns in sync when amount text changes
+    if "amount" in updates:
+        val, unit = parse_amount(updates["amount"])
+        val, unit = to_base_units(val, unit)
+        updates["amount_value"] = val
+        updates["amount_unit"] = unit
     set_clause = ", ".join(f"{k} = ?" for k in updates)
     values = list(updates.values()) + [purchase_id]
     conn = get_connection()
@@ -1060,3 +1295,134 @@ def delete_cooking_plan(plan_id: int) -> dict:
     if cursor.rowcount == 0:
         return {"status": "error", "message": f"Cooking plan {plan_id} not found"}
     return {"status": "success", "id": plan_id}
+
+
+# ---------------------------------------------------------------------------
+# Analysis helpers
+# ---------------------------------------------------------------------------
+
+def get_material_usage_analysis(start_date: str, end_date: str) -> list[dict]:
+    """Analyse expected material usage from cooking plans vs purchases.
+
+    Returns a list of materials sorted by estimated loss value (descending).
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # 1. Expected usage from cooking plans × recipe amounts
+    cursor.execute(
+        "SELECT pm.material_id, m.item_name, pm.amount_value, pm.amount_unit, cp.quantity "
+        "FROM cooking_plans cp "
+        "JOIN product_materials pm ON cp.product_id = pm.product_id "
+        "JOIN materials m ON pm.material_id = m.id "
+        "WHERE cp.plan_date BETWEEN ? AND ? AND pm.amount_value IS NOT NULL",
+        (start_date, end_date),
+    )
+    # Accumulate expected usage per (material_id, base_unit)
+    usage: dict[int, dict] = {}  # material_id -> {name, value, unit}
+    for row in cursor.fetchall():
+        mid = row["material_id"]
+        val = row["amount_value"] * row["quantity"]
+        unit = row["amount_unit"] or ""
+        if mid not in usage:
+            usage[mid] = {"name": row["item_name"], "value": 0.0, "unit": unit}
+        usage[mid]["value"] += val
+
+    # 2. Purchases in the same date range
+    cursor.execute(
+        "SELECT material_id, amount_value, amount_unit, price "
+        "FROM raw_purchases "
+        "WHERE purchase_date BETWEEN ? AND ? AND amount_value IS NOT NULL",
+        (start_date, end_date),
+    )
+    purchases: dict[int, dict] = {}  # material_id -> {total_amount, total_price}
+    for row in cursor.fetchall():
+        mid = row["material_id"]
+        if mid not in purchases:
+            purchases[mid] = {"total_amount": 0.0, "total_price": 0.0, "unit": row["amount_unit"] or ""}
+        purchases[mid]["total_amount"] += row["amount_value"]
+        purchases[mid]["total_price"] += row["price"]
+
+    # 3. Current inventory (in base units — same unit as usage/purchases)
+    cursor.execute("SELECT id, count FROM materials")
+    stock = {row["id"]: row["count"] for row in cursor.fetchall()}
+
+    conn.close()
+
+    # 4. Build result for every material where purchased >= expected_usage.
+    #    Skip materials where usage exceeds purchases (bad data).
+    results: list[dict] = []
+    for mid, u in usage.items():
+        expected = u["value"]
+        p = purchases.get(mid, {"total_amount": 0.0, "total_price": 0.0, "unit": ""})
+        purchased = p["total_amount"]
+
+        # Skip if units are incompatible between usage and purchase
+        if purchased > 0 and p["unit"] and u["unit"] and p["unit"] != u["unit"]:
+            continue
+
+        # Skip if expected usage exceeds purchases (impossible scenario)
+        if purchased < expected:
+            continue
+
+        # Unit price from purchases (cost per base unit)
+        unit_price = p["total_price"] / purchased if purchased > 0 else 0.0
+
+        current = stock.get(mid, 0)
+        expected_remaining = purchased - expected
+        unaccounted_loss = expected_remaining - current  # positive = missing
+        loss_pct = (unaccounted_loss / purchased * 100) if purchased > 0 else 0.0
+        flagged = unaccounted_loss > 0 and abs(loss_pct) > 20
+        estimated_loss_value = max(0.0, unaccounted_loss) * unit_price
+
+        results.append({
+            "material_id": mid,
+            "material_name": u["name"],
+            "unit": u["unit"],
+            "expected_usage": round(expected, 2),
+            "total_purchased": round(purchased, 2),
+            "current_stock": round(current, 2),
+            "expected_remaining": round(expected_remaining, 2),
+            "unaccounted_loss": round(unaccounted_loss, 2),
+            "loss_pct": round(loss_pct, 1),
+            "flagged": flagged,
+            "unit_price": round(unit_price, 4),
+            "estimated_loss_value": round(estimated_loss_value, 2),
+        })
+
+    # Sort by estimated loss value descending
+    results.sort(key=lambda r: r["estimated_loss_value"], reverse=True)
+    return results
+
+
+def get_material_drilldown(
+    material_id: int, start_date: str, end_date: str
+) -> list[dict]:
+    """Get per-day cooking plan breakdown for a specific material."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT cp.plan_date, bg.name AS product_name, cp.quantity, "
+        "pm.amount, pm.amount_value, pm.amount_unit "
+        "FROM cooking_plans cp "
+        "JOIN product_materials pm ON cp.product_id = pm.product_id "
+        "JOIN baked_goods bg ON cp.product_id = bg.id "
+        "WHERE pm.material_id = ? AND cp.plan_date BETWEEN ? AND ? "
+        "ORDER BY cp.plan_date DESC, bg.name",
+        (material_id, start_date, end_date),
+    )
+    entries = []
+    for row in cursor.fetchall():
+        per_unit = row["amount_value"] or 0.0
+        total_usage = per_unit * row["quantity"]
+        entries.append({
+            "plan_date": row["plan_date"],
+            "product_name": row["product_name"],
+            "quantity": row["quantity"],
+            "amount_per_unit": row["amount"],
+            "amount_value_per_unit": round(per_unit, 2),
+            "unit": row["amount_unit"] or "",
+            "total_usage": round(total_usage, 2),
+        })
+    conn.close()
+    return entries
