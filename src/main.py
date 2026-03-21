@@ -67,8 +67,15 @@ class RaiseTicketRequest(BaseModel):
 # Checklist endpoints
 # ---------------------------------------------------------------------------
 @app.get("/api/checklist/{checklist_type}/items")
+async def get_checklist_items(checklist_type: str):
+    """Get all items (complete and incomplete) for a checklist type."""
+    items = db.get_all_checklist_items(checklist_type)
+    return {"items": items}
+
+
+@app.get("/api/checklist/{checklist_type}/remaining")
 async def get_remaining_items(checklist_type: str):
-    """Get all remaining incomplete items for a checklist type."""
+    """Get all incomplete items for a checklist type."""
     items = db.get_incomplete_items(checklist_type)
     return {"items": items}
 
@@ -207,6 +214,56 @@ async def get_open_tickets():
     """Get all currently open tickets."""
     tickets = db.get_open_tickets()
     return {"tickets": tickets}
+
+
+# ---------------------------------------------------------------------------
+# Inventory endpoints (maps materials table to inventory log shape)
+# ---------------------------------------------------------------------------
+@app.get("/api/inventory")
+async def get_inventory():
+    """Get all inventory items (alias of materials, with dashboard-friendly field names)."""
+    materials = db.get_materials()
+    items = [
+        {
+            "id": m["id"],
+            "item_name": m["item_name"],
+            "count": m["count"],
+            "logged_by": m["updated_by"],
+            "logged_at": m["updated_at"],
+        }
+        for m in materials
+    ]
+    return {"items": items}
+
+
+# ---------------------------------------------------------------------------
+# Dashboard aggregate endpoint
+# ---------------------------------------------------------------------------
+@app.get("/api/dashboard")
+async def get_dashboard():
+    """Return all data needed to render the dashboard in one request."""
+    sanitation_items = db.get_all_checklist_items("sanitation")
+    sanitation_summary = db.get_checklist_summary("sanitation")
+    cleaning_tasks = db.get_cleaning_tasks()
+    cleaning_summary = db.get_cleaning_summary()
+    tickets = db.get_open_tickets()
+    materials = db.get_materials()
+    inventory_items = [
+        {
+            "id": m["id"],
+            "item_name": m["item_name"],
+            "count": m["count"],
+            "logged_by": m["updated_by"],
+            "logged_at": m["updated_at"],
+        }
+        for m in materials
+    ]
+    return {
+        "sanitation": {"items": sanitation_items, "summary": sanitation_summary},
+        "cleaning": {"tasks": cleaning_tasks, "summary": cleaning_summary},
+        "inventory": {"items": inventory_items},
+        "tickets": tickets,
+    }
 
 
 # ---------------------------------------------------------------------------

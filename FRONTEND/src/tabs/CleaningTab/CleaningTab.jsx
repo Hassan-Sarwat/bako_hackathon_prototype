@@ -1,35 +1,61 @@
-import { useState } from 'react'
-import { MOCK_SANITATION_ITEMS, MOCK_CLEANING_TASKS } from '../../data/mockData'
+import { useState, useEffect } from 'react'
+import {
+  fetchChecklistItems,
+  fetchCleaningTasks,
+  markChecklistComplete,
+  markChecklistIncomplete,
+  markCleaningComplete,
+  markCleaningIncomplete,
+} from '../../api'
 import ProgressBar from '../../components/ProgressBar/ProgressBar'
 import ChecklistRow from '../../components/ChecklistRow/ChecklistRow'
 import './CleaningTab.css'
 
 export default function CleaningTab() {
-  const [sanitation, setSanitation] = useState(MOCK_SANITATION_ITEMS)
-  const [cleaning, setCleaning] = useState(MOCK_CLEANING_TASKS)
+  const [sanitation, setSanitation] = useState([])
+  const [cleaning, setCleaning] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    Promise.all([fetchChecklistItems('sanitation'), fetchCleaningTasks()])
+      .then(([sanitationItems, cleaningTasks]) => {
+        setSanitation(sanitationItems)
+        setCleaning(cleaningTasks)
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
 
   function toggleSanitation(id) {
-    // TODO: POST /api/checklists/items/{id}/complete or /incomplete
-    setSanitation(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, is_complete: !item.is_complete } : item
-      )
-    )
+    const item = sanitation.find(i => i.id === id)
+    const apiFn = item.is_complete ? markChecklistIncomplete : markChecklistComplete
+    // Optimistic update
+    setSanitation(prev => prev.map(i => i.id === id ? { ...i, is_complete: !i.is_complete } : i))
+    apiFn(id).catch(() => {
+      // Revert on failure
+      setSanitation(prev => prev.map(i => i.id === id ? { ...i, is_complete: item.is_complete } : i))
+    })
   }
 
   function toggleCleaning(id) {
-    // TODO: POST /api/cleaning/tasks/{id}/complete or /incomplete
-    setCleaning(prev =>
-      prev.map(task =>
-        task.id === id ? { ...task, is_complete: !task.is_complete } : task
-      )
-    )
+    const task = cleaning.find(t => t.id === id)
+    const apiFn = task.is_complete ? markCleaningIncomplete : markCleaningComplete
+    // Optimistic update
+    setCleaning(prev => prev.map(t => t.id === id ? { ...t, is_complete: !t.is_complete } : t))
+    apiFn(id).catch(() => {
+      // Revert on failure
+      setCleaning(prev => prev.map(t => t.id === id ? { ...t, is_complete: task.is_complete } : t))
+    })
   }
 
+  if (loading) return <div className="tab-status">Loading cleaning tasks…</div>
+  if (error)   return <div className="tab-status tab-status--error">Error: {error}</div>
+
   const sanitationDone = sanitation.filter(i => i.is_complete).length
-  const cleaningDone = cleaning.filter(i => i.is_complete).length
+  const cleaningDone   = cleaning.filter(i => i.is_complete).length
   const totalDone = sanitationDone + cleaningDone
-  const totalAll = sanitation.length + cleaning.length
+  const totalAll  = sanitation.length + cleaning.length
 
   return (
     <div className="cleaning-tab">
