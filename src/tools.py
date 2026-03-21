@@ -1,0 +1,125 @@
+"""Gemini function declarations for the bakery assistant tools."""
+
+from google.genai import types
+
+# Tool: Mark a checklist item as complete
+mark_item_complete_decl = types.FunctionDeclaration(
+    name="mark_item_complete",
+    description="Mark a checklist item as complete. Use after the user confirms they have finished a task.",
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={
+            "item_id": types.Schema(
+                type="INTEGER",
+                description="The ID of the checklist item to mark as complete",
+            ),
+            "notes": types.Schema(
+                type="STRING",
+                description="Optional notes about the completion",
+            ),
+        },
+        required=["item_id"],
+    ),
+)
+
+# Tool: Mark a checklist item as incomplete
+mark_item_incomplete_decl = types.FunctionDeclaration(
+    name="mark_item_incomplete",
+    description="Mark a checklist item as incomplete, undoing a previous completion.",
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={
+            "item_id": types.Schema(
+                type="INTEGER",
+                description="The ID of the checklist item to mark as incomplete",
+            ),
+        },
+        required=["item_id"],
+    ),
+)
+
+# Tool: Get remaining incomplete items
+get_remaining_items_decl = types.FunctionDeclaration(
+    name="get_remaining_items",
+    description="Get all remaining incomplete items for a checklist. Returns item IDs and names.",
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={
+            "checklist_type": types.Schema(
+                type="STRING",
+                description="The type of checklist",
+                enum=["sanitation", "inventory"],
+            ),
+        },
+        required=["checklist_type"],
+    ),
+)
+
+# Tool: Log inventory count
+add_inventory_count_decl = types.FunctionDeclaration(
+    name="add_inventory_count",
+    description="Log the current count or quantity for an inventory item.",
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={
+            "item_name": types.Schema(
+                type="STRING",
+                description="The name of the inventory item",
+            ),
+            "count": types.Schema(
+                type="INTEGER",
+                description="The current count or quantity of the item",
+            ),
+        },
+        required=["item_name", "count"],
+    ),
+)
+
+# Tool: Log cleaning activity
+log_cleaning_activity_decl = types.FunctionDeclaration(
+    name="log_cleaning_activity",
+    description="Log a cleaning activity with the area cleaned and what was done.",
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={
+            "area": types.Schema(
+                type="STRING",
+                description="The area or surface that was cleaned",
+            ),
+            "action": types.Schema(
+                type="STRING",
+                description="What cleaning action was performed",
+            ),
+        },
+        required=["area", "action"],
+    ),
+)
+
+# Tool: Get checklist summary
+get_checklist_summary_decl = types.FunctionDeclaration(
+    name="get_checklist_summary",
+    description="Get a summary showing how many items are complete vs total for a checklist.",
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={
+            "checklist_type": types.Schema(
+                type="STRING",
+                description="The type of checklist",
+                enum=["sanitation", "inventory"],
+            ),
+        },
+        required=["checklist_type"],
+    ),
+)
+
+# All tools bundled for the Gemini config
+all_tools = types.Tool(
+    function_declarations=[
+        mark_item_complete_decl,
+        mark_item_incomplete_decl,
+        get_remaining_items_decl,
+        add_inventory_count_decl,
+        log_cleaning_activity_decl,
+        get_checklist_summary_decl,
+    ]
+)
