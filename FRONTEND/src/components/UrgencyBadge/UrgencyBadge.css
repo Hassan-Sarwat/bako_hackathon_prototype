@@ -1,0 +1,32 @@
+.urgency-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.urgency-urgent {
+  background: var(--bk-urgent-bg);
+  color: var(--bk-urgent-text);
+  border-color: var(--bk-urgent-border);
+}
+.urgency-high {
+  background: var(--bk-high-bg);
+  color: var(--bk-high-text);
+  border-color: var(--bk-high-border);
+}
+.urgency-normal {
+  background: var(--bk-normal-bg);
+  color: var(--bk-normal-text);
+  border-color: var(--bk-normal-border);
+}
+.urgency-low {
+  background: var(--bk-low-bg);
+  color: var(--bk-low-text);
+  border-color: var(--bk-low-border);
+}

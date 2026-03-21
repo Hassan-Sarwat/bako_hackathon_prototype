@@ -1,0 +1,128 @@
+.inventory-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.inventory-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text);
+  flex-wrap: wrap;
+}
+
+.summary-critical {
+  background: var(--bk-stock-critical-bg);
+  color: var(--bk-stock-critical);
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.summary-low {
+  background: var(--bk-stock-low-bg);
+  color: var(--bk-stock-low);
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.summary-updated {
+  margin-left: auto;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.inventory-grid {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.inventory-header,
+.inventory-row {
+  display: grid;
+  grid-template-columns: 2fr 70px 80px 100px 80px;
+  align-items: center;
+  padding: 12px 20px;
+  gap: 12px;
+}
+
+.inventory-header {
+  background: var(--bk-group-header-bg);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text);
+}
+
+.inventory-row {
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  transition: background 0.15s;
+}
+
+.inventory-row:hover {
+  background: var(--accent-bg);
+}
+
+.item-name {
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.item-count {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.item-status {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-align: center;
+}
+
+.stock-ok   { color: var(--bk-stock-ok); }
+.stock-low  { color: var(--bk-stock-low); }
+.stock-critical { color: var(--bk-stock-critical); }
+
+.item-status.stock-ok       { background: var(--bk-stock-ok-bg); }
+.item-status.stock-low      { background: var(--bk-stock-low-bg); }
+.item-status.stock-critical { background: var(--bk-stock-critical-bg); }
+
+.item-staff {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.item-time {
+  color: var(--text);
+  font-size: 12px;
+}
+
+@media (max-width: 1024px) {
+  .inventory-header,
+  .inventory-row {
+    grid-template-columns: 2fr 60px 70px 80px;
+  }
+  .col-time {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .inventory-header,
+  .inventory-row {
+    grid-template-columns: 1fr 60px 70px;
+    padding: 10px 14px;
+  }
+  .item-staff { display: none; }
+}

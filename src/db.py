@@ -133,6 +133,31 @@ def init_db() -> None:
     conn.close()
 
 
+def get_all_checklist_items(checklist_type: str) -> list[dict]:
+    """Get all items for a checklist type (complete and incomplete)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, checklist_type, item_name, is_complete, completed_at, completed_by, notes "
+        "FROM checklist_items WHERE checklist_type = ? ORDER BY id",
+        (checklist_type,),
+    )
+    items = [
+        {
+            "id": row["id"],
+            "checklist_type": row["checklist_type"],
+            "item_name": row["item_name"],
+            "is_complete": bool(row["is_complete"]),
+            "completed_at": row["completed_at"],
+            "completed_by": row["completed_by"],
+            "notes": row["notes"],
+        }
+        for row in cursor.fetchall()
+    ]
+    conn.close()
+    return items
+
+
 def get_incomplete_items(checklist_type: str) -> list[dict]:
     """Get all incomplete items for a checklist type."""
     conn = get_connection()
