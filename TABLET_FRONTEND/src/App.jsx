@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Settings, BarChart2, Briefcase, Wrench, ClipboardCheck, Mic } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Settings, BarChart2, Briefcase, Wrench, ClipboardCheck, Mic, MicOff } from 'lucide-react';
+import { VoiceSession } from './voice_session';
 
 const shortcuts = [
   { icon: <Briefcase size={24} className="text-[#4A7C7A]" />, label: 'Bestellung', bgColor: '#D1F2F2' },
@@ -9,6 +10,43 @@ const shortcuts = [
 
 const App = () => {
   const [active, setActive] = useState(false);
+  const [status, setStatus] = useState('disconnected');
+  const [transcript, setTranscript] = useState('');
+  const voiceSessionRef = useRef(null);
+
+  const toggleVoice = async () => {
+    if (active) {
+      voiceSessionRef.current?.stop();
+      setActive(false);
+    } else {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        alert('Please set VITE_GEMINI_API_KEY in .env');
+        return;
+      }
+      
+      voiceSessionRef.current = new VoiceSession(
+        apiKey,
+        'alice', // Example staff ID
+        (text) => setTranscript(text),
+        (newStatus) => setStatus(newStatus)
+      );
+      
+      try {
+        await voiceSessionRef.current.start();
+        setActive(true);
+      } catch (err) {
+        console.error(err);
+        setStatus('error');
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      voiceSessionRef.current?.stop();
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center p-6 font-sans text-[#4A3728]">
@@ -32,12 +70,12 @@ const App = () => {
       {/* Status Pill */}
       <div className="bg-[#F0F0EA] px-6 py-2 rounded-full flex items-center gap-3 mb-12 shadow-sm border border-stone-100">
         <div className="flex items-end gap-[2px] h-4">
-          <div className="w-1 bg-[#4A7C7A] h-2/3 rounded-full"></div>
-          <div className="w-1 bg-[#4A7C7A] h-full rounded-full"></div>
-          <div className="w-1 bg-[#4A7C7A] h-1/2 rounded-full"></div>
+          <div className={`w-1 h-2/3 rounded-full ${status === 'connected' ? 'bg-[#4A7C7A] animate-pulse' : 'bg-stone-400'}`}></div>
+          <div className={`w-1 h-full rounded-full ${status === 'connected' ? 'bg-[#4A7C7A] animate-pulse delay-75' : 'bg-stone-400'}`}></div>
+          <div className={`w-1 h-1/2 rounded-full ${status === 'connected' ? 'bg-[#4A7C7A] animate-pulse delay-150' : 'bg-stone-400'}`}></div>
         </div>
         <span className="text-[11px] font-bold uppercase tracking-widest text-stone-600">
-          Kitchen Sync Active
+          {status === 'connected' ? 'Kitchen Sync Active' : `Voice: ${status}`}
         </span>
       </div>
 
@@ -66,21 +104,21 @@ const App = () => {
       <div className="flex-1 flex flex-col items-center justify-center w-full">
         <button 
           className="group relative"
-          onClick={() => setActive(!active)}
+          onClick={toggleVoice}
         >
           {/* Glow Effect */}
           <div className={`absolute inset-0 bg-[#5D4037] opacity-20 blur-3xl rounded-full transition-all duration-500 ${active ? 'scale-150 opacity-40' : 'scale-125'}`}></div>
           
           <div className={`relative w-48 h-48 bg-[#5D4037] rounded-full flex flex-col items-center justify-center text-white shadow-2xl transition-all duration-300 active:scale-95 p-4 ${active ? 'animate-pulse shadow-[0_0_50px_rgba(40,0,200,0.6)]' : ''}`}>
-            <Mic size={40} className="mb-4" strokeWidth={2.5} />
+            {active ? <Mic size={40} className="mb-4" strokeWidth={2.5} /> : <MicOff size={40} className="mb-4" strokeWidth={2.5} />}
             <span className="text-sm font-bold uppercase tracking-wider">
-              {active ? 'Zuhören...' : 'Halten zum Sprechen'}
+              {active ? 'Zuhören...' : 'Starten'}
             </span>
           </div>
         </button>
 
-        <p className="mt-12 italic text-stone-500 text-lg text-center max-w-[250px] leading-relaxed">
-          "Add 20 sourdough loaves to morning batch"
+        <p className="mt-12 italic text-stone-500 text-lg text-center max-w-[300px] min-h-[3rem] leading-relaxed">
+          {transcript || '"Add 20 sourdough loaves to morning batch"'}
         </p>
       </div>
     </div>
