@@ -1,7 +1,7 @@
 """SQLite database setup, schema, seed data, and query helpers."""
 
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from .config import DB_PATH
@@ -18,7 +18,7 @@ SANITATION_ITEMS = [
     "Gerätegriffe abwischen",
 ]
 
-INVENTORY_ITEMS = [
+MATERIAL_ITEMS = [
     "Weizenmehl",
     "Zucker",
     "Butter",
@@ -67,12 +67,12 @@ def init_db() -> None:
             notes TEXT
         );
 
-        CREATE TABLE IF NOT EXISTS inventory_log (
+        CREATE TABLE IF NOT EXISTS materials (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            item_name TEXT NOT NULL,
-            count INTEGER NOT NULL,
-            logged_by TEXT,
-            logged_at TEXT DEFAULT CURRENT_TIMESTAMP
+            item_name TEXT NOT NULL UNIQUE,
+            count INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_by TEXT
         );
 
         CREATE TABLE IF NOT EXISTS cleaning_tasks (
@@ -111,7 +111,7 @@ def init_db() -> None:
         );
     """)
 
-    # Seed data if checklist is empty
+    # Seed sanitation checklist if empty
     cursor.execute("SELECT COUNT(*) FROM checklist_items")
     if cursor.fetchone()[0] == 0:
         for item in SANITATION_ITEMS:
@@ -119,10 +119,14 @@ def init_db() -> None:
                 "INSERT INTO checklist_items (checklist_type, item_name) VALUES (?, ?)",
                 ("sanitation", item),
             )
-        for item in INVENTORY_ITEMS:
+
+    # Seed materials if empty
+    cursor.execute("SELECT COUNT(*) FROM materials")
+    if cursor.fetchone()[0] == 0:
+        for item in MATERIAL_ITEMS:
             cursor.execute(
-                "INSERT INTO checklist_items (checklist_type, item_name) VALUES (?, ?)",
-                ("inventory", item),
+                "INSERT INTO materials (item_name, count) VALUES (?, 0)",
+                (item,),
             )
 
     conn.commit()
@@ -186,20 +190,67 @@ def mark_item_incomplete(item_id: int, staff_id: str | None = None) -> dict:
     return {"status": "error", "message": f"Item {item_id} not found"}
 
 
-def add_inventory_count(item_name: str, count: int, staff_id: str | None = None) -> dict:
-    """Log an inventory count for an item. Requires staff_id to be set."""
+def update_material_count(item_name: str, count: int, staff_id: str | None = None) -> dict:
+    """Update the count of a material. Creates it if it doesn't exist. Requires staff_id."""
     if not staff_id:
-        return {"status": "error", "message": "Cannot log inventory without a staff member identified. Please scan your NFC card first."}
+        return {"status": "error", "message": "Cannot update material without a staff member identified. Please scan your NFC card first."}
 
     conn = get_connection()
     cursor = conn.cursor()
+    now = datetime.now().isoformat()
     cursor.execute(
-        "INSERT INTO inventory_log (item_name, count, logged_by) VALUES (?, ?, ?)",
-        (item_name, count, staff_id),
+        "INSERT INTO materials (item_name, count, updated_at, updated_by) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(item_name) DO UPDATE SET count = ?, updated_at = ?, updated_by = ?",
+        (item_name, count, now, staff_id, count, now, staff_id),
     )
     conn.commit()
     conn.close()
-    return {"status": "success", "item_name": item_name, "count": count, "logged_by": staff_id}
+    return {"status": "success", "item_name": item_name, "count": count, "updated_by": staff_id}
+
+
+def get_materials() -> list[dict]:
+    """Get all materials with their current counts."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, item_name, count, updated_at, updated_by FROM materials ORDER BY item_name"
+    )
+    materials = [
+        {
+            "id": row["id"],
+            "item_name": row["item_name"],
+            "count": row["count"],
+            "updated_at": row["updated_at"],
+            "updated_by": row["updated_by"],
+        }
+        for row in cursor.fetchall()
+    ]
+    conn.close()
+    return materials
+
+
+def get_stale_materials(days: int = 7) -> list[dict]:
+    """Get materials that haven't been updated in the given number of days."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    cursor.execute(
+        "SELECT id, item_name, count, updated_at, updated_by FROM materials "
+        "WHERE updated_at IS NULL OR updated_at < ? ORDER BY updated_at",
+        (cutoff,),
+    )
+    materials = [
+        {
+            "id": row["id"],
+            "item_name": row["item_name"],
+            "count": row["count"],
+            "updated_at": row["updated_at"],
+            "updated_by": row["updated_by"],
+        }
+        for row in cursor.fetchall()
+    ]
+    conn.close()
+    return materials
 
 
 def ensure_daily_cleaning_tasks() -> None:
