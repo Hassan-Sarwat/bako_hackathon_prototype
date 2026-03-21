@@ -1,0 +1,92 @@
+.haccp-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.haccp-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.haccp-overview-title {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+
+.haccp-overview-sub {
+  font-size: 13px;
+  color: var(--text);
+  margin: 0;
+}
+
+.haccp-pct-badge {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  padding: 8px 18px;
+  white-space: nowrap;
+}
+
+.haccp-pct-badge--complete {
+  color: var(--bk-stock-ok);
+  background: var(--bk-stock-ok-bg);
+  border-color: var(--bk-low-border);
+}
+
+.haccp-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── HACCP Group ─────────────────────────────────────────────────────────── */
+
+.haccp-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.haccp-group-header {
+  background: var(--bk-group-header-bg);
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.haccp-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.haccp-group-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0;
+}
+
+.haccp-group-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 10px;
+  white-space: nowrap;
+}
+
+.haccp-group-items {
+  padding: 0 20px;
+}
