@@ -3,5 +3,3 @@ __pycache__/
 *.pyc
 .venv/
 .uv/
-test_*
-seed_fake_data.py

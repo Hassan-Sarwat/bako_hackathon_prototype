@@ -232,6 +232,19 @@ get_open_tickets_decl = types.FunctionDeclaration(
     ),
 )
 
+# Tool: Sitzung beenden
+end_session_decl = types.FunctionDeclaration(
+    name="end_session",
+    description=(
+        "Die aktuelle Sitzung beenden. Rufe dieses Tool auf, wenn der Benutzer sich verabschiedet, "
+        "z.B. 'Tschüss', 'Auf Wiedersehen', 'Bis später', 'Ciao', 'Bye', 'Schönen Feierabend' oder ähnliches."
+    ),
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={},
+    ),
+)
+
 # Alle Tools gebündelt für die Gemini-Konfiguration
 all_tools = types.Tool(
     function_declarations=[
@@ -249,5 +262,6 @@ all_tools = types.Tool(
         get_checklist_summary_decl,
         raise_ticket_decl,
         get_open_tickets_decl,
+        end_session_decl,
     ]
 )

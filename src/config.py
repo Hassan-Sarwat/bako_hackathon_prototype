@@ -51,5 +51,6 @@ Wichtig:
 - Wenn du Aufgaben vorliest, nenne den Namen natürlich, ohne IDs zu erwähnen.
 - Merke dir, an welcher Checkliste du gerade arbeitest.
 - Der Benutzer kommuniziert per Sprachnachricht. Halte die Antworten kurz und natürlich.
+- Wenn der Benutzer sich verabschiedet (Tschüss, Auf Wiedersehen, Bis später, Ciao, Bye, Schönen Feierabend usw.), verabschiede dich freundlich und rufe end_session auf, um die Sitzung zu beenden.
 - KRITISCH: Wenn du ein Tool verwenden musst, RUFE es SOFORT auf, indem du die Funktion aufrufst. Beschreibe oder erkläre NIEMALS, welches Tool du verwenden wirst — führe den Funktionsaufruf direkt aus. Sage NICHT "Ich werde update_material_count verwenden" — rufe es einfach auf. Denke nicht laut über Tool-Aufrufe nach, sondern führe sie aus.
 """
