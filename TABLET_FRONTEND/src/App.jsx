@@ -1,0 +1,83 @@
+import React from 'react';
+import { Settings, BarChart2, Briefcase, Wrench, ClipboardCheck, Mic } from 'lucide-react';
+
+const shortcuts = [
+  { icon: <Briefcase size={24} className="text-[#4A7C7A]" />, label: 'Bestellung', bgColor: '#D1F2F2' },
+  { icon: <Wrench size={24} className="text-[#A32A2A]" />, label: 'Wartung', bgColor: '#FCE8E8' },
+  { icon: <ClipboardCheck size={24} className="text-[#4A3728]" />, label: 'Prüfung', bgColor: '#E8E6D8' },
+];
+
+const App = () => {
+  return (
+    <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center p-6 font-sans text-[#4A3728]">
+      {/* Header */}
+      <header className="w-full max-w-md flex justify-between items-center mb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#E8DCC4]">
+            <img 
+              src="/img.avif" 
+              alt="Chef Portrait" 
+              className="object-cover"
+            />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight">Bernd das Brot</h1>
+        </div>
+        <button className="p-2 hover:bg-stone-200 rounded-full transition-colors">
+          <Settings size={24} className="text-[#4A3728]" />
+        </button>
+      </header>
+
+      {/* Status Pill */}
+      <div className="bg-[#F0F0EA] px-6 py-2 rounded-full flex items-center gap-3 mb-12 shadow-sm border border-stone-100">
+        <div className="flex items-end gap-[2px] h-4">
+          <div className="w-1 bg-[#4A7C7A] h-2/3 rounded-full"></div>
+          <div className="w-1 bg-[#4A7C7A] h-full rounded-full"></div>
+          <div className="w-1 bg-[#4A7C7A] h-1/2 rounded-full"></div>
+        </div>
+        <span className="text-[11px] font-bold uppercase tracking-widest text-stone-600">
+          Kitchen Sync Active
+        </span>
+      </div>
+
+      {/* Manual Shortcuts Section */}
+      <div className="w-full max-w-md mb-16">
+        <h2 className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400 mb-6">
+          Schnellzugriffe
+        </h2>
+        
+        <div className="grid grid-cols-3 gap-4">
+          {shortcuts.map((shortcut, index) => (
+            <button key={index} className="flex flex-col items-center gap-3 p-4 rounded-2xl bg-[#F0F0EA]/50 hover:bg-[#F0F0EA] transition-all border border-stone-100">
+              <div 
+                className="w-14 h-14 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: shortcut.bgColor }}
+              >
+                {shortcut.icon}
+              </div>
+              <span className="text-xs font-bold leading-tight text-center">{shortcut.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Voice Interface */}
+      <div className="flex-1 flex flex-col items-center justify-center w-full">
+        <button className="group relative">
+          {/* Glow Effect */}
+          <div className="absolute inset-0 bg-[#5D4037] opacity-20 blur-3xl rounded-full scale-125"></div>
+          
+          <div className="relative w-48 h-48 bg-[#5D4037] rounded-full flex flex-col items-center justify-center text-white shadow-2xl transition-transform active:scale-95 p-4">
+            <Mic size={40} className="mb-4" strokeWidth={2.5} />
+            <span className="text-sm font-bold uppercase tracking-wider">Halten zum Sprechen</span>
+          </div>
+        </button>
+
+        <p className="mt-12 italic text-stone-500 text-lg text-center max-w-[250px] leading-relaxed">
+          "Add 20 sourdough loaves to morning batch"
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default App;
