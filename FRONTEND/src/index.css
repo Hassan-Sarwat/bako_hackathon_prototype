@@ -1,0 +1,179 @@
+:root {
+  --text: #6b6375;
+  --text-h: #08060d;
+  --bg: #fff;
+  --border: #e5e4e7;
+  --code-bg: #f4f3ec;
+  --accent: #aa3bff;
+  --accent-bg: rgba(170, 59, 255, 0.1);
+  --accent-border: rgba(170, 59, 255, 0.5);
+  --social-bg: rgba(244, 243, 236, 0.5);
+  --shadow:
+    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 18px/145% var(--sans);
+  letter-spacing: 0.18px;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #9ca3af;
+    --text-h: #f3f4f6;
+    --bg: #16171d;
+    --border: #2e303a;
+    --code-bg: #1f2028;
+    --accent: #c084fc;
+    --accent-bg: rgba(192, 132, 252, 0.15);
+    --accent-border: rgba(192, 132, 252, 0.5);
+    --social-bg: rgba(47, 48, 58, 0.5);
+    --shadow:
+      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  }
+
+  #social .button-icon {
+    filter: invert(1) brightness(2);
+  }
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  width: 1126px;
+  max-width: 100%;
+  margin: 0 auto;
+  text-align: center;
+  border-inline: 1px solid var(--border);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+h1 {
+  font-size: 56px;
+  letter-spacing: -1.68px;
+  margin: 32px 0;
+  @media (max-width: 1024px) {
+    font-size: 36px;
+    margin: 20px 0;
+  }
+}
+h2 {
+  font-size: 24px;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  margin: 0 0 8px;
+  @media (max-width: 1024px) {
+    font-size: 20px;
+  }
+}
+p {
+  margin: 0;
+}
+
+code,
+.counter {
+  font-family: var(--mono);
+  display: inline-flex;
+  border-radius: 4px;
+  color: var(--text-h);
+}
+
+code {
+  font-size: 15px;
+  line-height: 135%;
+  padding: 4px 8px;
+  background: var(--code-bg);
+}
+
+/* ─── Bakery Dashboard Extensions ─────────────────────────────────────────── */
+:root {
+  /* Header */
+  --bk-header-bg: #1a1015;
+  --bk-header-text: #f5f0ff;
+
+  /* Urgency badges */
+  --bk-urgent-bg: #fef2f2;
+  --bk-urgent-text: #991b1b;
+  --bk-urgent-border: #fca5a5;
+  --bk-high-bg: #fff7ed;
+  --bk-high-text: #9a3412;
+  --bk-high-border: #fdba74;
+  --bk-normal-bg: #eff6ff;
+  --bk-normal-text: #1e40af;
+  --bk-normal-border: #93c5fd;
+  --bk-low-bg: #f0fdf4;
+  --bk-low-text: #166534;
+  --bk-low-border: #86efac;
+
+  /* Category tags */
+  --bk-cat-machine-bg: #fef3c7;   --bk-cat-machine-text: #92400e;
+  --bk-cat-noshow-bg: #fce7f3;    --bk-cat-noshow-text: #9d174d;
+  --bk-cat-stock-bg: #ede9fe;     --bk-cat-stock-text: #5b21b6;
+  --bk-cat-safety-bg: #fee2e2;    --bk-cat-safety-text: #991b1b;
+  --bk-cat-other-bg: #f4f3ec;     --bk-cat-other-text: #6b6375;
+
+  /* Inventory stock levels */
+  --bk-stock-ok: #16a34a;
+  --bk-stock-low: #d97706;
+  --bk-stock-critical: #dc2626;
+  --bk-stock-ok-bg: #f0fdf4;
+  --bk-stock-low-bg: #fffbeb;
+  --bk-stock-critical-bg: #fef2f2;
+
+  /* Progress bar */
+  --bk-progress-track: var(--border);
+  --bk-progress-fill: var(--accent);
+  --bk-progress-complete: #16a34a;
+
+  /* HACCP group header */
+  --bk-group-header-bg: var(--code-bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bk-urgent-bg: #450a0a;    --bk-urgent-text: #fca5a5;   --bk-urgent-border: #7f1d1d;
+    --bk-high-bg: #431407;      --bk-high-text: #fdba74;     --bk-high-border: #7c2d12;
+    --bk-normal-bg: #0c1a40;    --bk-normal-text: #93c5fd;   --bk-normal-border: #1e3a8a;
+    --bk-low-bg: #052e16;       --bk-low-text: #86efac;      --bk-low-border: #14532d;
+
+    --bk-cat-machine-bg: #451a03;  --bk-cat-machine-text: #fcd34d;
+    --bk-cat-noshow-bg: #4a044e;   --bk-cat-noshow-text: #f0abfc;
+    --bk-cat-stock-bg: #2e1065;    --bk-cat-stock-text: #c4b5fd;
+    --bk-cat-safety-bg: #450a0a;   --bk-cat-safety-text: #fca5a5;
+    --bk-cat-other-bg: #1f2028;    --bk-cat-other-text: #9ca3af;
+
+    --bk-stock-ok: #4ade80;
+    --bk-stock-low: #fbbf24;
+    --bk-stock-critical: #f87171;
+    --bk-stock-ok-bg: #052e16;
+    --bk-stock-low-bg: #451a03;
+    --bk-stock-critical-bg: #450a0a;
+
+    --bk-group-header-bg: #1f2028;
+  }
+}

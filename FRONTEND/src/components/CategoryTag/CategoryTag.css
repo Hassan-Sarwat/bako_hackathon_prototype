@@ -1,0 +1,32 @@
+.category-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.category-machine_breakdown {
+  background: var(--bk-cat-machine-bg);
+  color: var(--bk-cat-machine-text);
+}
+.category-no_show {
+  background: var(--bk-cat-noshow-bg);
+  color: var(--bk-cat-noshow-text);
+}
+.category-stock_shortage {
+  background: var(--bk-cat-stock-bg);
+  color: var(--bk-cat-stock-text);
+}
+.category-safety {
+  background: var(--bk-cat-safety-bg);
+  color: var(--bk-cat-safety-text);
+}
+.category-other {
+  background: var(--bk-cat-other-bg);
+  color: var(--bk-cat-other-text);
+}
