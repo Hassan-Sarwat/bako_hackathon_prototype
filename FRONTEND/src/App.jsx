@@ -6,6 +6,10 @@ import TicketsTab from './tabs/TicketsTab/TicketsTab'
 import InventoryTab from './tabs/InventoryTab/InventoryTab'
 import CleaningTab from './tabs/CleaningTab/CleaningTab'
 import HaccpTab from './tabs/HaccpTab/HaccpTab'
+import ScheduleTab from './tabs/ScheduleTab/ScheduleTab'
+import ProductsTab from './tabs/ProductsTab/ProductsTab'
+import PurchasesTab from './tabs/PurchasesTab/PurchasesTab'
+import CookingPlanTab from './tabs/CookingPlanTab/CookingPlanTab'
 import './App.css'
 
 function useClock() {
@@ -56,7 +60,11 @@ function App() {
           {activeTab === 'tickets'    && <TicketsTab />}
           {activeTab === 'inventory'  && <InventoryTab />}
           {activeTab === 'cleaning'   && <CleaningTab />}
-          {activeTab === 'haccp'      && <HaccpTab />}
+          {activeTab === 'haccp'        && <HaccpTab />}
+          {activeTab === 'schedule'     && <ScheduleTab />}
+          {activeTab === 'products'     && <ProductsTab />}
+          {activeTab === 'purchases'    && <PurchasesTab />}
+          {activeTab === 'cooking-plan' && <CookingPlanTab />}
         </main>
       </div>
 

@@ -68,11 +68,132 @@ export function markCleaningIncomplete(id) {
   })
 }
 
-export function closeTicket(id) {
-  return apiFetch(`/api/tickets/${id}/close`, {
-    method: 'PUT',
-    headers: { 'x-staff-id': STAFF_ID },
+// ── Schedules ────────────────────────────────────────────────────────────────
+
+export function fetchSchedules({ date, start_date, end_date } = {}) {
+  const q = new URLSearchParams()
+  if (date) q.set('date', date)
+  if (start_date) q.set('start_date', start_date)
+  if (end_date) q.set('end_date', end_date)
+  const qs = q.toString()
+  return apiFetch(`/api/schedules${qs ? `?${qs}` : ''}`).then(d => d.schedules)
+}
+
+export function createSchedule(data) {
+  return apiFetch('/api/schedules', {
+    method: 'POST',
+    body: JSON.stringify(data),
   })
+}
+
+export function updateSchedule(id, data) {
+  return apiFetch(`/api/schedules/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteSchedule(id) {
+  return apiFetch(`/api/schedules/${id}`, { method: 'DELETE' })
+}
+
+// ── Baked Goods ──────────────────────────────────────────────────────────────
+
+export function fetchBakedGoods() {
+  return apiFetch('/api/baked-goods').then(d => d.baked_goods)
+}
+
+export function fetchBakedGood(id) {
+  return apiFetch(`/api/baked-goods/${id}`)
+}
+
+export function createBakedGood(data) {
+  return apiFetch('/api/baked-goods', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateBakedGood(id, data) {
+  return apiFetch(`/api/baked-goods/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteBakedGood(id) {
+  return apiFetch(`/api/baked-goods/${id}`, { method: 'DELETE' })
+}
+
+export function fetchProductMaterials(productId) {
+  return apiFetch(`/api/baked-goods/${productId}/materials`).then(d => d.materials)
+}
+
+export function setProductMaterials(productId, materials) {
+  return apiFetch(`/api/baked-goods/${productId}/materials`, {
+    method: 'PUT',
+    body: JSON.stringify({ materials }),
+  })
+}
+
+// ── Raw Purchases ────────────────────────────────────────────────────────────
+
+export function fetchPurchases(params = {}) {
+  const q = new URLSearchParams()
+  if (params.material_id) q.set('material_id', params.material_id)
+  if (params.start_date) q.set('start_date', params.start_date)
+  if (params.end_date) q.set('end_date', params.end_date)
+  const qs = q.toString()
+  return apiFetch(`/api/purchases${qs ? `?${qs}` : ''}`).then(d => d.purchases)
+}
+
+export function createPurchase(data) {
+  return apiFetch('/api/purchases', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updatePurchase(id, data) {
+  return apiFetch(`/api/purchases/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deletePurchase(id) {
+  return apiFetch(`/api/purchases/${id}`, { method: 'DELETE' })
+}
+
+// ── Cooking Plans ────────────────────────────────────────────────────────────
+
+export function fetchCookingPlans(date) {
+  const q = date ? `?date=${date}` : ''
+  return apiFetch(`/api/cooking-plans${q}`).then(d => d.cooking_plans)
+}
+
+export function createCookingPlan(data) {
+  return apiFetch('/api/cooking-plans', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateCookingPlan(id, data) {
+  return apiFetch(`/api/cooking-plans/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteCookingPlan(id) {
+  return apiFetch(`/api/cooking-plans/${id}`, { method: 'DELETE' })
+}
+
+// ── Materials (for dropdowns) ────────────────────────────────────────────────
+
+export function fetchMaterials() {
+  return apiFetch('/api/materials').then(d => d.materials)
 }
 
 // ── Dashboard (all at once) ───────────────────────────────────────────────────

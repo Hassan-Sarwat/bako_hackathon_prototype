@@ -47,6 +47,7 @@ CLEANING_TASKS = [
 def get_connection() -> sqlite3.Connection:
     """Get a database connection."""
     conn = sqlite3.connect(str(DB_PATH))
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -108,6 +109,54 @@ def init_db() -> None:
             tool_args TEXT,
             tool_result TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS schedules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            employee_name TEXT NOT NULL,
+            schedule_date TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            cleaning INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS baked_goods (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            recipe TEXT,
+            price REAL NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS product_materials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            material_id INTEGER NOT NULL,
+            amount TEXT NOT NULL,
+            FOREIGN KEY (product_id) REFERENCES baked_goods(id) ON DELETE CASCADE,
+            FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE,
+            UNIQUE(product_id, material_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS raw_purchases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            material_id INTEGER NOT NULL,
+            amount TEXT NOT NULL,
+            price REAL NOT NULL,
+            purchase_date TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS cooking_plans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plan_date TEXT NOT NULL,
+            product_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES baked_goods(id) ON DELETE CASCADE,
+            UNIQUE(plan_date, product_id)
         );
     """)
 
@@ -581,3 +630,433 @@ def reset_checklists() -> dict:
     conn.commit()
     conn.close()
     return {"status": "success", "message": "All checklists reset for a new day"}
+
+
+# ---------------------------------------------------------------------------
+# Schedule helpers
+# ---------------------------------------------------------------------------
+
+def get_schedules(
+    schedule_date: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> list[dict]:
+    """Get schedules, optionally filtered by date or date range."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    if schedule_date:
+        cursor.execute(
+            "SELECT id, employee_name, schedule_date, start_time, end_time, cleaning, created_at "
+            "FROM schedules WHERE schedule_date = ? ORDER BY start_time",
+            (schedule_date,),
+        )
+    elif start_date and end_date:
+        cursor.execute(
+            "SELECT id, employee_name, schedule_date, start_time, end_time, cleaning, created_at "
+            "FROM schedules WHERE schedule_date >= ? AND schedule_date <= ? ORDER BY schedule_date, start_time",
+            (start_date, end_date),
+        )
+    else:
+        cursor.execute(
+            "SELECT id, employee_name, schedule_date, start_time, end_time, cleaning, created_at "
+            "FROM schedules ORDER BY schedule_date, start_time"
+        )
+    items = [
+        {
+            "id": row["id"],
+            "employee_name": row["employee_name"],
+            "schedule_date": row["schedule_date"],
+            "start_time": row["start_time"],
+            "end_time": row["end_time"],
+            "cleaning": bool(row["cleaning"]),
+            "created_at": row["created_at"],
+        }
+        for row in cursor.fetchall()
+    ]
+    conn.close()
+    return items
+
+
+def create_schedule(
+    employee_name: str,
+    schedule_date: str,
+    start_time: str,
+    end_time: str,
+    cleaning: int = 0,
+) -> dict:
+    """Create a new schedule entry."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO schedules (employee_name, schedule_date, start_time, end_time, cleaning) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (employee_name, schedule_date, start_time, end_time, cleaning),
+    )
+    schedule_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return {"status": "success", "id": schedule_id}
+
+
+def update_schedule(schedule_id: int, **fields) -> dict:
+    """Update a schedule entry. Pass only the fields to change."""
+    allowed = {"employee_name", "schedule_date", "start_time", "end_time", "cleaning"}
+    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    if not updates:
+        return {"status": "error", "message": "No valid fields to update"}
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [schedule_id]
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f"UPDATE schedules SET {set_clause} WHERE id = ?", values)
+    conn.commit()
+    conn.close()
+    if cursor.rowcount == 0:
+        return {"status": "error", "message": f"Schedule {schedule_id} not found"}
+    return {"status": "success", "id": schedule_id}
+
+
+def delete_schedule(schedule_id: int) -> dict:
+    """Delete a schedule entry."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM schedules WHERE id = ?", (schedule_id,))
+    conn.commit()
+    conn.close()
+    if cursor.rowcount == 0:
+        return {"status": "error", "message": f"Schedule {schedule_id} not found"}
+    return {"status": "success", "id": schedule_id}
+
+
+# ---------------------------------------------------------------------------
+# Baked goods helpers
+# ---------------------------------------------------------------------------
+
+def get_baked_goods() -> list[dict]:
+    """Get all baked goods (products)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, name, recipe, price, created_at FROM baked_goods ORDER BY name"
+    )
+    items = [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "recipe": row["recipe"],
+            "price": row["price"],
+            "created_at": row["created_at"],
+        }
+        for row in cursor.fetchall()
+    ]
+    conn.close()
+    return items
+
+
+def get_baked_good(product_id: int) -> dict | None:
+    """Get a single baked good with its materials."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, name, recipe, price, created_at FROM baked_goods WHERE id = ?",
+        (product_id,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None
+    product = {
+        "id": row["id"],
+        "name": row["name"],
+        "recipe": row["recipe"],
+        "price": row["price"],
+        "created_at": row["created_at"],
+    }
+    cursor.execute(
+        "SELECT pm.id, pm.material_id, m.item_name AS material_name, pm.amount "
+        "FROM product_materials pm JOIN materials m ON pm.material_id = m.id "
+        "WHERE pm.product_id = ? ORDER BY m.item_name",
+        (product_id,),
+    )
+    product["materials"] = [
+        {
+            "id": r["id"],
+            "material_id": r["material_id"],
+            "material_name": r["material_name"],
+            "amount": r["amount"],
+        }
+        for r in cursor.fetchall()
+    ]
+    conn.close()
+    return product
+
+
+def create_baked_good(name: str, price: float, recipe: str | None = None) -> dict:
+    """Create a new baked good (product)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO baked_goods (name, price, recipe) VALUES (?, ?, ?)",
+            (name, price, recipe),
+        )
+        product_id = cursor.lastrowid
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return {"status": "error", "message": f"Product '{name}' already exists"}
+    conn.close()
+    return {"status": "success", "id": product_id}
+
+
+def update_baked_good(product_id: int, **fields) -> dict:
+    """Update a baked good. Pass only the fields to change."""
+    allowed = {"name", "price", "recipe"}
+    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    if not updates:
+        return {"status": "error", "message": "No valid fields to update"}
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [product_id]
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f"UPDATE baked_goods SET {set_clause} WHERE id = ?", values)
+    conn.commit()
+    conn.close()
+    if cursor.rowcount == 0:
+        return {"status": "error", "message": f"Product {product_id} not found"}
+    return {"status": "success", "id": product_id}
+
+
+def delete_baked_good(product_id: int) -> dict:
+    """Delete a baked good (cascades to product_materials)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM baked_goods WHERE id = ?", (product_id,))
+    conn.commit()
+    conn.close()
+    if cursor.rowcount == 0:
+        return {"status": "error", "message": f"Product {product_id} not found"}
+    return {"status": "success", "id": product_id}
+
+
+# ---------------------------------------------------------------------------
+# Product materials helpers
+# ---------------------------------------------------------------------------
+
+def get_product_materials(product_id: int) -> list[dict]:
+    """Get all materials for a product."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT pm.id, pm.material_id, m.item_name AS material_name, pm.amount "
+        "FROM product_materials pm JOIN materials m ON pm.material_id = m.id "
+        "WHERE pm.product_id = ? ORDER BY m.item_name",
+        (product_id,),
+    )
+    items = [
+        {
+            "id": r["id"],
+            "material_id": r["material_id"],
+            "material_name": r["material_name"],
+            "amount": r["amount"],
+        }
+        for r in cursor.fetchall()
+    ]
+    conn.close()
+    return items
+
+
+def set_product_materials(product_id: int, materials: list[dict]) -> dict:
+    """Replace all materials for a product. Each dict has material_id and amount."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM product_materials WHERE product_id = ?", (product_id,))
+    for mat in materials:
+        cursor.execute(
+            "INSERT INTO product_materials (product_id, material_id, amount) VALUES (?, ?, ?)",
+            (product_id, mat["material_id"], mat["amount"]),
+        )
+    conn.commit()
+    conn.close()
+    return {"status": "success", "product_id": product_id, "count": len(materials)}
+
+
+# ---------------------------------------------------------------------------
+# Raw purchases helpers
+# ---------------------------------------------------------------------------
+
+def get_raw_purchases(
+    material_id: int | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> list[dict]:
+    """Get raw material purchases with optional filters."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = (
+        "SELECT rp.id, rp.material_id, m.item_name AS material_name, "
+        "rp.amount, rp.price, rp.purchase_date, rp.created_at "
+        "FROM raw_purchases rp JOIN materials m ON rp.material_id = m.id"
+    )
+    conditions = []
+    params: list = []
+    if material_id is not None:
+        conditions.append("rp.material_id = ?")
+        params.append(material_id)
+    if start_date:
+        conditions.append("rp.purchase_date >= ?")
+        params.append(start_date)
+    if end_date:
+        conditions.append("rp.purchase_date <= ?")
+        params.append(end_date)
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += " ORDER BY rp.purchase_date DESC"
+    cursor.execute(query, params)
+    items = [
+        {
+            "id": r["id"],
+            "material_id": r["material_id"],
+            "material_name": r["material_name"],
+            "amount": r["amount"],
+            "price": r["price"],
+            "purchase_date": r["purchase_date"],
+            "created_at": r["created_at"],
+        }
+        for r in cursor.fetchall()
+    ]
+    conn.close()
+    return items
+
+
+def create_raw_purchase(
+    material_id: int, amount: str, price: float, purchase_date: str
+) -> dict:
+    """Create a new raw material purchase."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO raw_purchases (material_id, amount, price, purchase_date) VALUES (?, ?, ?, ?)",
+            (material_id, amount, price, purchase_date),
+        )
+        purchase_id = cursor.lastrowid
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return {"status": "error", "message": "Invalid material_id"}
+    conn.close()
+    return {"status": "success", "id": purchase_id}
+
+
+def update_raw_purchase(purchase_id: int, **fields) -> dict:
+    """Update a raw purchase. Pass only the fields to change."""
+    allowed = {"material_id", "amount", "price", "purchase_date"}
+    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    if not updates:
+        return {"status": "error", "message": "No valid fields to update"}
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [purchase_id]
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f"UPDATE raw_purchases SET {set_clause} WHERE id = ?", values)
+    conn.commit()
+    conn.close()
+    if cursor.rowcount == 0:
+        return {"status": "error", "message": f"Purchase {purchase_id} not found"}
+    return {"status": "success", "id": purchase_id}
+
+
+def delete_raw_purchase(purchase_id: int) -> dict:
+    """Delete a raw material purchase."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM raw_purchases WHERE id = ?", (purchase_id,))
+    conn.commit()
+    conn.close()
+    if cursor.rowcount == 0:
+        return {"status": "error", "message": f"Purchase {purchase_id} not found"}
+    return {"status": "success", "id": purchase_id}
+
+
+# ---------------------------------------------------------------------------
+# Cooking plan helpers
+# ---------------------------------------------------------------------------
+
+def get_cooking_plans(plan_date: str | None = None) -> list[dict]:
+    """Get cooking plans, optionally filtered by date."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = (
+        "SELECT cp.id, cp.plan_date, cp.product_id, bg.name AS product_name, "
+        "cp.quantity, cp.created_at "
+        "FROM cooking_plans cp JOIN baked_goods bg ON cp.product_id = bg.id"
+    )
+    if plan_date:
+        query += " WHERE cp.plan_date = ? ORDER BY bg.name"
+        cursor.execute(query, (plan_date,))
+    else:
+        query += " ORDER BY cp.plan_date DESC, bg.name"
+        cursor.execute(query)
+    items = [
+        {
+            "id": r["id"],
+            "plan_date": r["plan_date"],
+            "product_id": r["product_id"],
+            "product_name": r["product_name"],
+            "quantity": r["quantity"],
+            "created_at": r["created_at"],
+        }
+        for r in cursor.fetchall()
+    ]
+    conn.close()
+    return items
+
+
+def create_cooking_plan(plan_date: str, product_id: int, quantity: int) -> dict:
+    """Create or update a cooking plan entry (upserts on date+product)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO cooking_plans (plan_date, product_id, quantity) VALUES (?, ?, ?) "
+            "ON CONFLICT(plan_date, product_id) DO UPDATE SET quantity = ?",
+            (plan_date, product_id, quantity, quantity),
+        )
+        plan_id = cursor.lastrowid
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return {"status": "error", "message": "Invalid product_id"}
+    conn.close()
+    return {"status": "success", "id": plan_id}
+
+
+def update_cooking_plan(plan_id: int, **fields) -> dict:
+    """Update a cooking plan entry. Pass only the fields to change."""
+    allowed = {"plan_date", "product_id", "quantity"}
+    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    if not updates:
+        return {"status": "error", "message": "No valid fields to update"}
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [plan_id]
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f"UPDATE cooking_plans SET {set_clause} WHERE id = ?", values)
+    conn.commit()
+    conn.close()
+    if cursor.rowcount == 0:
+        return {"status": "error", "message": f"Cooking plan {plan_id} not found"}
+    return {"status": "success", "id": plan_id}
+
+
+def delete_cooking_plan(plan_id: int) -> dict:
+    """Delete a cooking plan entry."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM cooking_plans WHERE id = ?", (plan_id,))
+    conn.commit()
+    conn.close()
+    if cursor.rowcount == 0:
+        return {"status": "error", "message": f"Cooking plan {plan_id} not found"}
+    return {"status": "success", "id": plan_id}
