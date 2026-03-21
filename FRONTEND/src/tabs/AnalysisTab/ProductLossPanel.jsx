@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { fetchProductLossAnalysis, fetchProductLossDrilldown } from '../../api'
 import ProductLossDrillDown from './ProductLossDrillDown'
+import ProductLossPieChart from './ProductLossPieChart'
 
 function toISO(d) {
   return d.toISOString().slice(0, 10)
@@ -85,6 +86,8 @@ export default function ProductLossPanel() {
               <span className="summary-value">{data.length}</span>
             </div>
           </div>
+
+          <ProductLossPieChart data={data} />
 
           <div className="analysis-grid">
             <div className="analysis-header">

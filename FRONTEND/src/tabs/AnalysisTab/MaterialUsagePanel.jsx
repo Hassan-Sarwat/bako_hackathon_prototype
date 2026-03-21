@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { fetchMaterialUsageAnalysis, fetchMaterialDrilldown } from '../../api'
 import MaterialDrillDown from './MaterialDrillDown'
+import MaterialWasteChart from './MaterialWasteChart'
 
 function toISO(d) {
   return d.toISOString().slice(0, 10)
@@ -91,6 +92,8 @@ export default function MaterialUsagePanel() {
               <span className="summary-value">{data.length}</span>
             </div>
           </div>
+
+          <MaterialWasteChart data={data} />
 
           <div className="analysis-grid">
             <div className="analysis-header">

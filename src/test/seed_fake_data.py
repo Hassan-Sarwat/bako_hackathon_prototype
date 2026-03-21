@@ -1,8 +1,13 @@
 """Populate the bakery database with realistic fake data in German.
 
-The seed data is designed so that purchases, cooking plans, and inventory
+The seed data is designed so that purchases, cooking plans, sales, and inventory
 are internally consistent.  A few materials intentionally have suspicious
 losses (>20 %) to make the Analysis tab demo meaningful.
+
+Sales data spans 90 days with realistic trends:
+  - Day-of-week patterns (Saturday peak, Sunday low)
+  - Weather influence (cold → more bread, rain → more comfort food)
+  - Holiday boosts (Christmas, NYE, Fasching)
 
 Usage:
     python seed_fake_data.py          # Seeds bakery.db (creates if needed)
@@ -10,11 +15,12 @@ Usage:
 """
 
 import json
+import math
 import random
 import re
 import sqlite3
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date as date_type
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -59,6 +65,137 @@ def to_base_units(value: float, unit: str) -> tuple[float, str]:
 # ---------------------------------------------------------------------------
 TODAY = datetime(2026, 3, 21)
 TODAY_DATE = TODAY.date().isoformat()  # "2026-03-21"
+HISTORY_DAYS = 90  # go back to Dec 21, 2025
+
+# ---------------------------------------------------------------------------
+# German holidays (Bavaria) relevant for our date range
+# ---------------------------------------------------------------------------
+GERMAN_HOLIDAYS = {
+    "2025-12-24": "Heiligabend",
+    "2025-12-25": "1. Weihnachtsfeiertag",
+    "2025-12-26": "2. Weihnachtsfeiertag",
+    "2025-12-31": "Silvester",
+    "2026-01-01": "Neujahr",
+    "2026-01-06": "Heilige Drei Könige",
+    "2026-02-16": "Rosenmontag",
+    "2026-02-17": "Faschingsdienstag",
+}
+
+# Christmas season: Dec 21-26
+CHRISTMAS_SEASON = {f"2025-12-{d:02d}" for d in range(21, 27)}
+# NYE/New Year: Dec 30 - Jan 2
+NYE_SEASON = {"2025-12-30", "2025-12-31", "2026-01-01", "2026-01-02"}
+# Fasching: Feb 14-17
+FASCHING_SEASON = {f"2026-02-{d:02d}" for d in range(14, 18)}
+
+
+def is_holiday(d: date_type) -> bool:
+    return d.isoformat() in GERMAN_HOLIDAYS
+
+
+def get_holiday_multiplier(d: date_type, product_name: str) -> float:
+    ds = d.isoformat()
+    if ds in CHRISTMAS_SEASON:
+        if product_name == "Vanillekipferl":
+            return 1.60
+        return 1.30
+    if ds in NYE_SEASON:
+        return 1.20
+    if ds in FASCHING_SEASON:
+        if product_name in ("Brezeln", "Croissant"):
+            return 1.25
+        return 1.15
+    if ds in GERMAN_HOLIDAYS:
+        return 1.10
+    return 1.0
+
+
+# ---------------------------------------------------------------------------
+# Synthetic weather data for Munich (Dec 2025 - Mar 2026)
+# ---------------------------------------------------------------------------
+# Monthly temperature profiles: (mean, std_dev)
+MONTHLY_TEMP = {
+    12: (0.5, 3.5),   # December
+    1:  (-1.0, 4.0),  # January
+    2:  (1.5, 3.5),   # February
+    3:  (5.0, 3.0),   # March
+}
+
+# WMO weather codes
+WMO_CLEAR = [0, 1]          # clear / mainly clear
+WMO_CLOUDY = [2, 3]         # partly cloudy / overcast
+WMO_RAIN = [51, 53, 61, 63] # drizzle / rain
+WMO_SNOW = [71, 73]         # snow
+
+
+def generate_weather_for_date(d: date_type) -> dict:
+    """Generate plausible Munich weather for a given date."""
+    month = d.month
+    mean_temp, std = MONTHLY_TEMP.get(month, (3.0, 3.0))
+
+    # Add a slow seasonal trend within the month
+    day_fraction = d.day / 28.0
+    if month == 12:
+        mean_temp -= day_fraction * 1.5  # gets colder
+    elif month in (2, 3):
+        mean_temp += day_fraction * 1.5  # gets warmer
+
+    temp_mean = round(random.gauss(mean_temp, std), 1)
+    temp_range = random.uniform(3.0, 8.0)
+    temp_max = round(temp_mean + temp_range / 2, 1)
+    temp_min = round(temp_mean - temp_range / 2, 1)
+
+    # Precipitation: ~40% chance
+    has_precip = random.random() < 0.40
+    if has_precip:
+        precip = round(random.uniform(0.5, 12.0), 1)
+        if temp_mean < 0:
+            weather_code = random.choice(WMO_SNOW)
+        else:
+            weather_code = random.choice(WMO_RAIN)
+    else:
+        precip = 0.0
+        weather_code = random.choice(WMO_CLEAR + WMO_CLOUDY)
+
+    return {
+        "weather_date": d.isoformat(),
+        "temperature_max": temp_max,
+        "temperature_min": temp_min,
+        "temperature_mean": temp_mean,
+        "precipitation_mm": precip,
+        "weather_code": weather_code,
+    }
+
+
+def get_weather_production_modifier(weather: dict, product_name: str) -> float:
+    """Weather influence on how much to produce."""
+    temp = weather["temperature_mean"]
+    precip = weather["precipitation_mm"]
+    breads = ("Vollkornbrot", "Brezeln", "Sesambrötchen")
+    modifier = 1.0
+    if temp < 5:
+        modifier += 0.12 if product_name in breads else 0.08
+    if precip > 5:
+        modifier += 0.08 if product_name in breads else 0.05
+    if temp > 15:
+        modifier -= 0.08 if product_name in breads else -0.03
+    return modifier
+
+
+def get_weather_sales_modifier(weather: dict, product_name: str) -> float:
+    """Weather influence on sell-through rate."""
+    temp = weather["temperature_mean"]
+    precip = weather["precipitation_mm"]
+    breads = ("Vollkornbrot", "Brezeln", "Sesambrötchen")
+    modifier = 1.0
+    if temp < 3:
+        modifier += 0.04 if product_name in breads else 0.02
+    if precip > 5:
+        modifier += 0.03
+    if temp > 15:
+        modifier -= 0.02
+    return modifier
+
 
 # ---------------------------------------------------------------------------
 # Staff members
@@ -72,7 +209,7 @@ STAFF = [
 ]
 
 # ---------------------------------------------------------------------------
-# Sanitation checklist items (the same 8 the app uses + a few extras)
+# Sanitation checklist items
 # ---------------------------------------------------------------------------
 SANITATION_ITEMS = [
     "Arbeitsflächen desinfizieren",
@@ -86,7 +223,7 @@ SANITATION_ITEMS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Materials – all raw materials the bakery uses
+# Materials
 # ---------------------------------------------------------------------------
 MATERIAL_NAMES = [
     "Weizenmehl",
@@ -117,7 +254,7 @@ MATERIAL_NAMES = [
 ]
 
 # ---------------------------------------------------------------------------
-# Cleaning tasks (area + action)
+# Cleaning tasks
 # ---------------------------------------------------------------------------
 CLEANING_TASKS = [
     {"area": "Arbeitsflächen", "action": "Alle Arbeitsflächen und Theken desinfizieren"},
@@ -133,7 +270,7 @@ CLEANING_TASKS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Tickets – realistic bakery issues
+# Tickets
 # ---------------------------------------------------------------------------
 TICKET_TEMPLATES = [
     {
@@ -199,7 +336,7 @@ TICKET_TEMPLATES = [
 ]
 
 # ---------------------------------------------------------------------------
-# Audit log – sample voice interactions
+# Audit log
 # ---------------------------------------------------------------------------
 AUDIT_INTERACTIONS = [
     {
@@ -284,12 +421,12 @@ EMPLOYEE_NAMES = [
 ]
 
 SHIFT_PATTERNS = [
-    ("04:00", "12:00"),  # Frühschicht
-    ("05:00", "13:00"),  # Frühschicht
-    ("06:00", "14:00"),  # Normalschicht
-    ("08:00", "16:00"),  # Tagschicht
-    ("10:00", "18:00"),  # Spätschicht
-    ("12:00", "20:00"),  # Spätschicht
+    ("04:00", "12:00"),
+    ("05:00", "13:00"),
+    ("06:00", "14:00"),
+    ("08:00", "16:00"),
+    ("10:00", "18:00"),
+    ("12:00", "20:00"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -362,8 +499,55 @@ BAKED_GOODS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Purchase templates: what a single order looks like for each material
-# (material_name, amount_text, base_price_for_that_amount)
+# Production base quantities & day-of-week multipliers
+# ---------------------------------------------------------------------------
+PRODUCT_BASE_QTY = {
+    "Croissant": 80,
+    "Vollkornbrot": 25,
+    "Schokoladenkuchen": 20,
+    "Mohnkuchen": 18,
+    "Mandelkuchen": 15,
+    "Brezeln": 100,
+    "Sesambrötchen": 90,
+    "Vanillekipferl": 120,
+}
+
+# Day-of-week production multipliers (0=Mon .. 6=Sun)
+DOW_PRODUCTION_MULT = {
+    0: 1.0,   # Monday
+    1: 1.0,   # Tuesday
+    2: 1.0,   # Wednesday
+    3: 1.0,   # Thursday
+    4: 1.15,  # Friday
+    5: 1.40,  # Saturday
+    6: 0.70,  # Sunday
+}
+
+# Base sell-through rates (fraction of production that sells)
+BASE_SELLTHROUGH = {
+    "Croissant": 0.88,
+    "Vollkornbrot": 0.82,
+    "Schokoladenkuchen": 0.75,
+    "Brezeln": 0.90,
+    "Mohnkuchen": 0.70,
+    "Mandelkuchen": 0.72,
+    "Sesambrötchen": 0.85,
+    "Vanillekipferl": 0.80,
+}
+
+# Day-of-week sales multipliers on sell-through
+DOW_SALES_MULT = {
+    0: 0.92,  # Monday
+    1: 1.0,
+    2: 1.0,
+    3: 1.0,
+    4: 1.05,  # Friday
+    5: 1.10,  # Saturday
+    6: 0.95,  # Sunday
+}
+
+# ---------------------------------------------------------------------------
+# Purchase templates
 # ---------------------------------------------------------------------------
 RAW_PURCHASE_TEMPLATES = {
     "Weizenmehl":           ("25kg", 18.50),
@@ -393,18 +577,13 @@ RAW_PURCHASE_TEMPLATES = {
     "Leinsamen":            ("2kg",   7.00),
 }
 
-# Materials that should show suspicious loss in the demo.
-# Purchases cover usage normally, but inventory is mysteriously near zero.
-# The analysis will flag: purchased - expected_usage = expected_remaining,
-# but actual inventory ≈ 0  →  unaccounted_loss ≈ expected_remaining.
 LOSS_MATERIALS = {
-    "Butter",               # expensive — high monetary loss
-    "Eier",                 # noticeable loss in pieces
-    "Schokoladenstückchen", # significant shortage
-    "Vanilleextrakt",       # very expensive per unit — small volume, big € impact
+    "Butter",
+    "Eier",
+    "Schokoladenstückchen",
+    "Vanilleextrakt",
 }
 
-# All materials get purchases covering usage + 5-15% buffer
 PURCHASE_COVER_RANGE = (1.05, 1.15)
 
 
@@ -413,7 +592,7 @@ PURCHASE_COVER_RANGE = (1.05, 1.15)
 # ═══════════════════════════════════════════════════════════════════════════
 
 def create_tables(cursor: sqlite3.Cursor) -> None:
-    """Ensure all tables exist (mirrors src/db.py schema + new columns)."""
+    """Ensure all tables exist."""
     cursor.executescript("""
         CREATE TABLE IF NOT EXISTS checklist_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -510,11 +689,43 @@ def create_tables(cursor: sqlite3.Cursor) -> None:
             FOREIGN KEY (product_id) REFERENCES baked_goods(id) ON DELETE CASCADE,
             UNIQUE(plan_date, product_id)
         );
+        CREATE TABLE IF NOT EXISTS sales (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sale_date TEXT NOT NULL,
+            product_id INTEGER NOT NULL,
+            quantity_sold INTEGER NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES baked_goods(id) ON DELETE CASCADE,
+            UNIQUE(sale_date, product_id)
+        );
+        CREATE TABLE IF NOT EXISTS predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prediction_date TEXT NOT NULL,
+            product_id INTEGER NOT NULL,
+            predicted_sales INTEGER NOT NULL,
+            recommended_production INTEGER NOT NULL,
+            confidence_lower INTEGER,
+            confidence_upper INTEGER,
+            model_version TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES baked_goods(id) ON DELETE CASCADE,
+            UNIQUE(prediction_date, product_id)
+        );
+        CREATE TABLE IF NOT EXISTS weather_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            weather_date TEXT NOT NULL UNIQUE,
+            temperature_max REAL,
+            temperature_min REAL,
+            temperature_mean REAL,
+            precipitation_mm REAL,
+            weather_code INTEGER,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
     """)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Seed helpers (unchanged from before)
+# Seed helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
 def seed_checklist_items(cursor: sqlite3.Cursor) -> None:
@@ -539,7 +750,6 @@ def seed_checklist_items(cursor: sqlite3.Cursor) -> None:
 
 
 def seed_materials(cursor: sqlite3.Cursor) -> None:
-    """Seed materials – counts will be updated later once we know usage."""
     for item_name in MATERIAL_NAMES:
         days_ago = random.randint(0, 3)
         updated = TODAY - timedelta(days=days_ago)
@@ -638,11 +848,11 @@ def seed_schedules(cursor: sqlite3.Cursor) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Coherent baked goods → cooking plans → purchases → inventory
+# Coherent baked goods → cooking plans → sales → purchases → inventory
 # ═══════════════════════════════════════════════════════════════════════════
 
 def seed_baked_goods(cursor: sqlite3.Cursor) -> None:
-    """Seed baked goods with recipes and material links (incl. parsed amounts)."""
+    """Seed baked goods with recipes and material links."""
     cursor.execute("SELECT id, item_name FROM materials")
     mat_map = {row[1]: row[0] for row in cursor.fetchall()}
 
@@ -667,11 +877,39 @@ def seed_baked_goods(cursor: sqlite3.Cursor) -> None:
     print(f"  baked_goods: {len(BAKED_GOODS)} products with recipes")
 
 
-def seed_cooking_plans(cursor: sqlite3.Cursor) -> dict[str, float]:
-    """Seed cooking plans for the past 2 weeks + today.
+def seed_weather_data(cursor: sqlite3.Cursor) -> None:
+    """Generate synthetic weather data for the full date range."""
+    total = 0
+    for days_back in range(HISTORY_DAYS, -1, -1):
+        d = (TODAY - timedelta(days=days_back)).date()
+        w = generate_weather_for_date(d)
+        cursor.execute(
+            "INSERT OR IGNORE INTO weather_data "
+            "(weather_date, temperature_max, temperature_min, temperature_mean, "
+            "precipitation_mm, weather_code) VALUES (?, ?, ?, ?, ?, ?)",
+            (w["weather_date"], w["temperature_max"], w["temperature_min"],
+             w["temperature_mean"], w["precipitation_mm"], w["weather_code"]),
+        )
+        total += 1
+    # Also generate 3 days into the future for predictions
+    for days_ahead in range(1, 4):
+        d = (TODAY + timedelta(days=days_ahead)).date()
+        w = generate_weather_for_date(d)
+        cursor.execute(
+            "INSERT OR IGNORE INTO weather_data "
+            "(weather_date, temperature_max, temperature_min, temperature_mean, "
+            "precipitation_mm, weather_code) VALUES (?, ?, ?, ?, ?, ?)",
+            (w["weather_date"], w["temperature_max"], w["temperature_min"],
+             w["temperature_mean"], w["precipitation_mm"], w["weather_code"]),
+        )
+        total += 1
+    print(f"  weather_data: {total} rows ({HISTORY_DAYS} days + 3 future)")
 
-    Returns a dict of material_name → total expected usage in base units,
-    so that purchases and inventory can be generated consistently.
+
+def seed_cooking_plans(cursor: sqlite3.Cursor) -> dict[str, float]:
+    """Seed cooking plans for the past 90 days + today with realistic trends.
+
+    Returns a dict of material_name → total expected usage in base units.
     """
     cursor.execute("SELECT id, name FROM baked_goods")
     products = cursor.fetchall()
@@ -679,32 +917,47 @@ def seed_cooking_plans(cursor: sqlite3.Cursor) -> dict[str, float]:
         print("  cooking_plans: no products, skipped")
         return {}
 
-    # Build recipe lookup: product_id -> [(material_name, base_value, base_unit)]
+    # Build recipe lookup
     cursor.execute(
         "SELECT pm.product_id, m.item_name, pm.amount_value, pm.amount_unit "
         "FROM product_materials pm JOIN materials m ON pm.material_id = m.id"
     )
     recipe_map: dict[int, list[tuple[str, float, str]]] = {}
     for row in cursor.fetchall():
-        pid = row[0]
-        recipe_map.setdefault(pid, []).append((row[1], row[2] or 0.0, row[3] or ""))
+        recipe_map.setdefault(row[0], []).append((row[1], row[2] or 0.0, row[3] or ""))
 
-    # Accumulate total expected usage per material
-    total_usage: dict[str, float] = {}  # material_name -> base units
+    # Load weather data for modifiers
+    cursor.execute("SELECT weather_date, temperature_mean, precipitation_mm FROM weather_data")
+    weather_by_date: dict[str, dict] = {}
+    for row in cursor.fetchall():
+        weather_by_date[row[0]] = {
+            "temperature_mean": row[1] or 3.0,
+            "precipitation_mm": row[2] or 0.0,
+        }
+
+    total_usage: dict[str, float] = {}
     total = 0
 
-    for days_back in range(14, -1, -1):
-        plan_date = (TODAY - timedelta(days=days_back)).date().isoformat()
-        n_products = random.randint(3, min(6, len(products)))
-        day_products = random.sample(products, n_products)
+    for days_back in range(HISTORY_DAYS, -1, -1):
+        plan_d = (TODAY - timedelta(days=days_back)).date()
+        plan_date = plan_d.isoformat()
+        dow = plan_d.weekday()
+        dow_mult = DOW_PRODUCTION_MULT[dow]
+        weather = weather_by_date.get(plan_date, {"temperature_mean": 3.0, "precipitation_mm": 0.0})
 
-        for prod_id, prod_name in day_products:
-            if prod_name in ("Croissant", "Brezeln", "Sesambrötchen"):
-                qty = random.randint(50, 150)
-            elif prod_name == "Vanillekipferl":
-                qty = random.randint(80, 200)
-            else:
-                qty = random.randint(10, 40)
+        for prod_id, prod_name in products:
+            base_qty = PRODUCT_BASE_QTY.get(prod_name, 30)
+            weather_mult = get_weather_production_modifier(weather, prod_name)
+            holiday_mult = get_holiday_multiplier(plan_d, prod_name)
+
+            # Small growth trend: +0.1% per week
+            weeks_from_start = days_back / 7.0
+            growth = 1.0 + (HISTORY_DAYS / 7.0 - weeks_from_start) * 0.001
+
+            qty = base_qty * dow_mult * weather_mult * holiday_mult * growth
+            # Add noise +/-15%
+            qty *= random.uniform(0.85, 1.15)
+            qty = max(5, round(qty))
 
             cursor.execute(
                 "INSERT OR IGNORE INTO cooking_plans (plan_date, product_id, quantity) "
@@ -713,25 +966,86 @@ def seed_cooking_plans(cursor: sqlite3.Cursor) -> dict[str, float]:
             )
             total += 1
 
-            # Accumulate usage
             for mat_name, base_val, _ in recipe_map.get(prod_id, []):
                 total_usage[mat_name] = total_usage.get(mat_name, 0.0) + base_val * qty
 
-    print(f"  cooking_plans: {total} rows (15 days)")
+    print(f"  cooking_plans: {total} rows ({HISTORY_DAYS + 1} days, all products)")
     return total_usage
+
+
+def seed_sales(cursor: sqlite3.Cursor) -> None:
+    """Generate realistic sales data based on cooking plans.
+
+    Sales cannot exceed production. Sell-through is influenced by
+    day-of-week, weather, holidays, and random noise.
+    """
+    # Load weather data
+    cursor.execute("SELECT weather_date, temperature_mean, precipitation_mm FROM weather_data")
+    weather_by_date: dict[str, dict] = {}
+    for row in cursor.fetchall():
+        weather_by_date[row[0]] = {
+            "temperature_mean": row[1] or 3.0,
+            "precipitation_mm": row[2] or 0.0,
+        }
+
+    # Load cooking plans
+    cursor.execute(
+        "SELECT cp.plan_date, cp.product_id, bg.name AS product_name, cp.quantity "
+        "FROM cooking_plans cp JOIN baked_goods bg ON cp.product_id = bg.id "
+        "ORDER BY cp.plan_date"
+    )
+    plans = cursor.fetchall()
+
+    total = 0
+    for row in plans:
+        plan_date = row[0]
+        product_id = row[1]
+        product_name = row[2]
+        produced = row[3]
+
+        d = date_type.fromisoformat(plan_date)
+        # Don't generate sales for today (it's still ongoing)
+        if d >= TODAY.date():
+            continue
+
+        dow = d.weekday()
+        base_st = BASE_SELLTHROUGH.get(product_name, 0.80)
+        dow_mult = DOW_SALES_MULT.get(dow, 1.0)
+        weather = weather_by_date.get(plan_date, {"temperature_mean": 3.0, "precipitation_mm": 0.0})
+        weather_mult = get_weather_sales_modifier(weather, product_name)
+        holiday_mult = 1.0
+        ds = d.isoformat()
+        if ds in CHRISTMAS_SEASON or ds in NYE_SEASON:
+            holiday_mult = 1.08
+        elif ds in FASCHING_SEASON:
+            holiday_mult = 1.05
+        elif ds in GERMAN_HOLIDAYS:
+            holiday_mult = 1.03
+
+        # Noise +/-5%
+        noise = random.uniform(0.95, 1.05)
+
+        sell_through = base_st * dow_mult * weather_mult * holiday_mult * noise
+        # Clamp sell-through to [0.50, 0.98] to keep it realistic
+        sell_through = max(0.50, min(0.98, sell_through))
+
+        qty_sold = min(produced, max(1, round(produced * sell_through)))
+
+        cursor.execute(
+            "INSERT OR IGNORE INTO sales (sale_date, product_id, quantity_sold) "
+            "VALUES (?, ?, ?)",
+            (plan_date, product_id, qty_sold),
+        )
+        total += 1
+
+    print(f"  sales: {total} rows")
 
 
 def seed_raw_purchases(
     cursor: sqlite3.Cursor,
     total_usage: dict[str, float],
 ) -> dict[str, float]:
-    """Seed purchases that are coherent with cooking plan usage.
-
-    - For most materials: purchases cover usage + 5-15 % normal waste.
-    - For LOSS_MATERIALS: purchases only cover a fraction of usage (demo flag).
-
-    Returns dict of material_name → total purchased (base units).
-    """
+    """Seed purchases coherent with cooking plan usage."""
     cursor.execute("SELECT id, item_name FROM materials")
     mat_map = {row[1]: row[0] for row in cursor.fetchall()}
 
@@ -752,24 +1066,15 @@ def seed_raw_purchases(
         if order_base_val <= 0:
             continue
 
-        # All materials get enough purchases to cover usage + small buffer.
-        # The loss for LOSS_MATERIALS shows up via low inventory, not low purchases.
         cover_ratio = random.uniform(*PURCHASE_COVER_RANGE)
-
         target_purchased = expected_base * cover_ratio
-
-        # How many orders needed? (at least 1)
         n_orders = max(1, round(target_purchased / order_base_val))
 
-        # Spread orders over the last 14 days
         purchased_total = 0.0
         for _ in range(n_orders):
-            days_back = random.randint(0, 14)
+            days_back = random.randint(0, HISTORY_DAYS)
             purchase_date = (TODAY - timedelta(days=days_back)).date().isoformat()
-
-            # Slight price variation ±10 %
             price = round(order_base_price * random.uniform(0.90, 1.10), 2)
-
             cursor.execute(
                 "INSERT INTO raw_purchases "
                 "(material_id, amount, amount_value, amount_unit, price, purchase_date) "
@@ -781,19 +1086,17 @@ def seed_raw_purchases(
 
         total_purchased[mat_name] = purchased_total
 
-    # Also add a handful of purchases for materials NOT used in any recipe
-    # (e.g. Sahne, Zimt, Trockenhefe) so the purchases tab isn't empty for them
+    # Purchases for materials not used in recipes
     unused_in_recipes = set(mat_map.keys()) - set(total_usage.keys())
     for mat_name in unused_in_recipes:
         template = RAW_PURCHASE_TEMPLATES.get(mat_name)
         if not template:
             continue
-        # 1-2 random purchases in the last 2 weeks
         for _ in range(random.randint(1, 2)):
             order_text, order_base_price = template
             order_val, order_unit = parse_amount(order_text)
             order_base_val, order_base_unit = to_base_units(order_val, order_unit)
-            days_back = random.randint(0, 14)
+            days_back = random.randint(0, HISTORY_DAYS)
             purchase_date = (TODAY - timedelta(days=days_back)).date().isoformat()
             price = round(order_base_price * random.uniform(0.90, 1.10), 2)
             cursor.execute(
@@ -805,7 +1108,7 @@ def seed_raw_purchases(
             total_purchased[mat_name] = total_purchased.get(mat_name, 0.0) + order_base_val
             total_rows += 1
 
-    print(f"  raw_purchases: {total_rows} rows (14 days)")
+    print(f"  raw_purchases: {total_rows} rows ({HISTORY_DAYS} days)")
     return total_purchased
 
 
@@ -814,16 +1117,7 @@ def update_material_counts(
     total_usage: dict[str, float],
     total_purchased: dict[str, float],
 ) -> None:
-    """Set material inventory counts in BASE UNITS (g, ml, or Stück).
-
-    All three numbers share the same unit:
-        purchased (base units) - expected_usage (base units) = expected_remaining
-        actual_inventory (base units) = expected_remaining - unaccounted_loss
-
-    For normal materials:  inventory ≈ expected_remaining (small random variance)
-    For LOSS_MATERIALS:    inventory is near zero or very low, making the
-                           unaccounted loss clearly visible in the analysis.
-    """
+    """Set material inventory counts in BASE UNITS."""
     cursor.execute("SELECT id, item_name FROM materials")
     mat_map = {row[1]: row[0] for row in cursor.fetchall()}
 
@@ -833,15 +1127,11 @@ def update_material_counts(
         expected_remaining = purchased - used
 
         if mat_name in LOSS_MATERIALS:
-            # These materials have mysteriously low inventory.
-            # Inventory is only 0-10% of expected_remaining → big unaccounted loss.
             count = round(max(0, expected_remaining * random.uniform(0.0, 0.10)))
         elif purchased > 0 and used > 0:
-            # Normal materials: inventory ≈ expected_remaining with small variance (±5%)
             variance = random.uniform(-0.05, 0.05) * expected_remaining
             count = round(max(0, expected_remaining + variance))
         else:
-            # Materials not used in recipes — just some stock on hand
             count = round(purchased * random.uniform(0.5, 0.9)) if purchased > 0 else random.randint(500, 5000)
 
         days_ago = random.randint(0, 2)
@@ -854,6 +1144,72 @@ def update_material_counts(
     print(f"  materials: counts updated for {len(mat_map)} items (base units)")
 
 
+def seed_predictions(cursor: sqlite3.Cursor) -> None:
+    """Generate simple predictions for today + next 2 days.
+
+    Uses a straightforward heuristic based on recent sales averages and
+    day-of-week patterns. The real ML model (prediction_model.py) can
+    replace these with better predictions later.
+    """
+    cursor.execute("SELECT id, name FROM baked_goods")
+    products = cursor.fetchall()
+    if not products:
+        return
+
+    # Calculate average sales per product per day-of-week from recent data
+    cursor.execute(
+        "SELECT s.product_id, s.sale_date, s.quantity_sold "
+        "FROM sales s ORDER BY s.sale_date"
+    )
+    sales_data: dict[int, list[tuple[str, int]]] = {}
+    for row in cursor.fetchall():
+        sales_data.setdefault(row[0], []).append((row[1], row[2]))
+
+    total = 0
+    for prod_id, prod_name in products:
+        product_sales = sales_data.get(prod_id, [])
+        if not product_sales:
+            continue
+
+        # Group by day-of-week
+        dow_sales: dict[int, list[int]] = {}
+        for sale_date, qty in product_sales:
+            d = date_type.fromisoformat(sale_date)
+            dow_sales.setdefault(d.weekday(), []).append(qty)
+
+        # Overall average
+        all_qtys = [q for _, q in product_sales]
+        overall_avg = sum(all_qtys) / len(all_qtys)
+
+        for days_ahead in range(0, 3):
+            pred_d = (TODAY + timedelta(days=days_ahead)).date()
+            pred_date = pred_d.isoformat()
+            dow = pred_d.weekday()
+
+            # Use day-of-week average if available, otherwise overall
+            if dow in dow_sales and len(dow_sales[dow]) >= 3:
+                avg = sum(dow_sales[dow]) / len(dow_sales[dow])
+            else:
+                avg = overall_avg
+
+            predicted = max(5, round(avg))
+            recommended = max(5, math.ceil(predicted * 1.10))
+            conf_lower = max(1, round(predicted * 0.80))
+            conf_upper = round(predicted * 1.20)
+
+            cursor.execute(
+                "INSERT OR REPLACE INTO predictions "
+                "(prediction_date, product_id, predicted_sales, recommended_production, "
+                "confidence_lower, confidence_upper, model_version) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (pred_date, prod_id, predicted, recommended,
+                 conf_lower, conf_upper, "heuristic-v1"),
+            )
+            total += 1
+
+    print(f"  predictions: {total} rows (3 days × {len(products)} products)")
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Main
 # ═══════════════════════════════════════════════════════════════════════════
@@ -863,6 +1219,7 @@ def main() -> None:
 
     print(f"Database: {DB_PATH}")
     print(f"Date:     {TODAY_DATE}")
+    print(f"History:  {HISTORY_DAYS} days")
     print()
 
     conn = sqlite3.connect(str(DB_PATH))
@@ -875,6 +1232,7 @@ def main() -> None:
     if reset:
         print("Deleting existing data ...")
         for table in [
+            "predictions", "sales", "weather_data",
             "cooking_plans", "raw_purchases", "product_materials", "baked_goods",
             "schedules", "checklist_items", "materials", "cleaning_tasks",
             "tickets", "audit_log",
@@ -890,11 +1248,14 @@ def main() -> None:
     seed_audit_log(cursor)
     seed_schedules(cursor)
     seed_baked_goods(cursor)
+    seed_weather_data(cursor)
 
-    # These three are tightly coupled for consistency
+    # These are tightly coupled for consistency
     total_usage = seed_cooking_plans(cursor)
+    seed_sales(cursor)
     total_purchased = seed_raw_purchases(cursor, total_usage)
     update_material_counts(cursor, total_usage, total_purchased)
+    seed_predictions(cursor)
 
     # Read back inventory for summary
     cursor.execute("SELECT item_name, count FROM materials")

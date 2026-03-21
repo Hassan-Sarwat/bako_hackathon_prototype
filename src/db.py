@@ -205,6 +205,41 @@ def init_db() -> None:
             FOREIGN KEY (product_id) REFERENCES baked_goods(id) ON DELETE CASCADE,
             UNIQUE(plan_date, product_id)
         );
+
+        CREATE TABLE IF NOT EXISTS sales (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sale_date TEXT NOT NULL,
+            product_id INTEGER NOT NULL,
+            quantity_sold INTEGER NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES baked_goods(id) ON DELETE CASCADE,
+            UNIQUE(sale_date, product_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prediction_date TEXT NOT NULL,
+            product_id INTEGER NOT NULL,
+            predicted_sales INTEGER NOT NULL,
+            recommended_production INTEGER NOT NULL,
+            confidence_lower INTEGER,
+            confidence_upper INTEGER,
+            model_version TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES baked_goods(id) ON DELETE CASCADE,
+            UNIQUE(prediction_date, product_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS weather_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            weather_date TEXT NOT NULL UNIQUE,
+            temperature_max REAL,
+            temperature_min REAL,
+            temperature_mean REAL,
+            precipitation_mm REAL,
+            weather_code INTEGER,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
     """)
 
     # Seed sanitation checklist if empty
@@ -1426,3 +1461,259 @@ def get_material_drilldown(
         })
     conn.close()
     return entries
+
+
+# ── Sales ─────────────────────────────────────────────────────────────────────
+
+def get_sales(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    product_id: int | None = None,
+) -> list[dict]:
+    """Get sales data with optional filters, joined with product info."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    clauses: list[str] = []
+    params: list = []
+    if start_date:
+        clauses.append("s.sale_date >= ?")
+        params.append(start_date)
+    if end_date:
+        clauses.append("s.sale_date <= ?")
+        params.append(end_date)
+    if product_id:
+        clauses.append("s.product_id = ?")
+        params.append(product_id)
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    cursor.execute(
+        "SELECT s.id, s.sale_date, s.product_id, bg.name AS product_name, "
+        "s.quantity_sold, bg.price "
+        "FROM sales s JOIN baked_goods bg ON s.product_id = bg.id"
+        f"{where} ORDER BY s.sale_date DESC, bg.name",
+        params,
+    )
+    items = []
+    for row in cursor.fetchall():
+        items.append({
+            "id": row["id"],
+            "sale_date": row["sale_date"],
+            "product_id": row["product_id"],
+            "product_name": row["product_name"],
+            "quantity_sold": row["quantity_sold"],
+            "price": row["price"],
+            "revenue": round(row["quantity_sold"] * row["price"], 2),
+        })
+    conn.close()
+    return items
+
+
+# ── Predictions ───────────────────────────────────────────────────────────────
+
+def get_predictions(
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> list[dict]:
+    """Get predictions with optional date range filter."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    clauses: list[str] = []
+    params: list = []
+    if start_date:
+        clauses.append("p.prediction_date >= ?")
+        params.append(start_date)
+    if end_date:
+        clauses.append("p.prediction_date <= ?")
+        params.append(end_date)
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    cursor.execute(
+        "SELECT p.id, p.prediction_date, p.product_id, bg.name AS product_name, "
+        "bg.price, p.predicted_sales, p.recommended_production, "
+        "p.confidence_lower, p.confidence_upper, p.model_version "
+        "FROM predictions p JOIN baked_goods bg ON p.product_id = bg.id"
+        f"{where} ORDER BY p.prediction_date, bg.name",
+        params,
+    )
+    items = []
+    for row in cursor.fetchall():
+        items.append({
+            "id": row["id"],
+            "prediction_date": row["prediction_date"],
+            "product_id": row["product_id"],
+            "product_name": row["product_name"],
+            "price": row["price"],
+            "predicted_sales": row["predicted_sales"],
+            "recommended_production": row["recommended_production"],
+            "confidence_lower": row["confidence_lower"],
+            "confidence_upper": row["confidence_upper"],
+            "model_version": row["model_version"],
+        })
+    conn.close()
+    return items
+
+
+def get_prediction_daily_plan(date_str: str) -> list[dict]:
+    """Get the recommended cooking plan for a specific day."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT p.product_id, bg.name AS product_name, bg.price, "
+        "p.predicted_sales, p.recommended_production, "
+        "p.confidence_lower, p.confidence_upper "
+        "FROM predictions p JOIN baked_goods bg ON p.product_id = bg.id "
+        "WHERE p.prediction_date = ? ORDER BY bg.name",
+        (date_str,),
+    )
+    plan = []
+    for row in cursor.fetchall():
+        plan.append({
+            "product_id": row["product_id"],
+            "product_name": row["product_name"],
+            "price": row["price"],
+            "predicted_sales": row["predicted_sales"],
+            "recommended_production": row["recommended_production"],
+            "confidence_lower": row["confidence_lower"],
+            "confidence_upper": row["confidence_upper"],
+            "estimated_revenue": round(row["predicted_sales"] * row["price"], 2),
+        })
+    conn.close()
+    return plan
+
+
+def get_product_sales_history(product_id: int, days: int = 14) -> list[dict]:
+    """Get last N days of actual sales for a product."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+    cursor.execute(
+        "SELECT sale_date, quantity_sold "
+        "FROM sales WHERE product_id = ? AND sale_date >= ? "
+        "ORDER BY sale_date",
+        (product_id, cutoff),
+    )
+    items = [{"date": row["sale_date"], "quantity": row["quantity_sold"]} for row in cursor.fetchall()]
+    conn.close()
+    return items
+
+
+def get_product_predictions(product_id: int, days: int = 3) -> list[dict]:
+    """Get next N days of predictions for a product."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    today = date.today().isoformat()
+    end = (date.today() + timedelta(days=days)).isoformat()
+    cursor.execute(
+        "SELECT prediction_date, predicted_sales, confidence_lower, confidence_upper "
+        "FROM predictions WHERE product_id = ? AND prediction_date >= ? AND prediction_date <= ? "
+        "ORDER BY prediction_date",
+        (product_id, today, end),
+    )
+    items = []
+    for row in cursor.fetchall():
+        items.append({
+            "date": row["prediction_date"],
+            "quantity": row["predicted_sales"],
+            "confidence_lower": row["confidence_lower"],
+            "confidence_upper": row["confidence_upper"],
+        })
+    conn.close()
+    return items
+
+
+def upsert_prediction(
+    prediction_date: str,
+    product_id: int,
+    predicted_sales: int,
+    recommended_production: int,
+    confidence_lower: int | None = None,
+    confidence_upper: int | None = None,
+    model_version: str | None = None,
+) -> None:
+    """Insert or replace a prediction row."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO predictions "
+        "(prediction_date, product_id, predicted_sales, recommended_production, "
+        "confidence_lower, confidence_upper, model_version) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(prediction_date, product_id) DO UPDATE SET "
+        "predicted_sales=excluded.predicted_sales, "
+        "recommended_production=excluded.recommended_production, "
+        "confidence_lower=excluded.confidence_lower, "
+        "confidence_upper=excluded.confidence_upper, "
+        "model_version=excluded.model_version, "
+        "created_at=CURRENT_TIMESTAMP",
+        (prediction_date, product_id, predicted_sales, recommended_production,
+         confidence_lower, confidence_upper, model_version),
+    )
+    conn.commit()
+    conn.close()
+
+
+def upsert_weather(
+    weather_date: str,
+    temperature_max: float | None = None,
+    temperature_min: float | None = None,
+    temperature_mean: float | None = None,
+    precipitation_mm: float | None = None,
+    weather_code: int | None = None,
+) -> None:
+    """Insert or replace a weather data row."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO weather_data "
+        "(weather_date, temperature_max, temperature_min, temperature_mean, "
+        "precipitation_mm, weather_code) "
+        "VALUES (?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(weather_date) DO UPDATE SET "
+        "temperature_max=excluded.temperature_max, "
+        "temperature_min=excluded.temperature_min, "
+        "temperature_mean=excluded.temperature_mean, "
+        "precipitation_mm=excluded.precipitation_mm, "
+        "weather_code=excluded.weather_code, "
+        "created_at=CURRENT_TIMESTAMP",
+        (weather_date, temperature_max, temperature_min, temperature_mean,
+         precipitation_mm, weather_code),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_cached_weather(start_date: str, end_date: str) -> list[dict]:
+    """Read weather data from the local cache."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT weather_date, temperature_max, temperature_min, temperature_mean, "
+        "precipitation_mm, weather_code "
+        "FROM weather_data WHERE weather_date BETWEEN ? AND ? ORDER BY weather_date",
+        (start_date, end_date),
+    )
+    items = []
+    for row in cursor.fetchall():
+        items.append({
+            "date": row["weather_date"],
+            "temperature_max": row["temperature_max"],
+            "temperature_min": row["temperature_min"],
+            "temperature_mean": row["temperature_mean"],
+            "precipitation_mm": row["precipitation_mm"],
+            "weather_code": row["weather_code"],
+        })
+    conn.close()
+    return items
+
+
+def get_baked_good(product_id: int) -> dict | None:
+    """Get a single baked good by ID."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, name, price, recipe FROM baked_goods WHERE id = ?",
+        (product_id,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {"id": row["id"], "name": row["name"], "price": row["price"], "recipe": row["recipe"]}
+    return None

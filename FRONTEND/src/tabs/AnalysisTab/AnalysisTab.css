@@ -259,6 +259,75 @@
   border-top: 1px solid var(--border);
 }
 
+/* Charts */
+.analysis-chart-container {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  background: var(--accent-bg, #f8fafc);
+}
+
+.analysis-chart-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.analysis-chart-svg {
+  width: 100%;
+  max-width: 600px;
+  height: auto;
+}
+
+/* Pie chart */
+.pie-chart-layout {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.pie-chart-svg {
+  width: 200px;
+  height: 200px;
+  flex-shrink: 0;
+}
+
+.pie-chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.pie-legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.pie-legend-label {
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.pie-legend-value {
+  margin-left: auto;
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 /* Empty state */
 .analysis-empty {
   padding: 40px 20px;

@@ -9,8 +9,9 @@ const TABS = [
   { id: 'schedule',     label: 'Schedule'     },
   { id: 'products',     label: 'Products'     },
   { id: 'purchases',    label: 'Purchases'    },
-  { id: 'cooking-plan', label: 'Cooking Plan' },
-  { id: 'analysis',     label: 'Analysis'     },
+  { id: 'cooking-plan',     label: 'Cooking Plan'     },
+  { id: 'prediction-plan',  label: 'Prediction Plan'  },
+  { id: 'analysis',         label: 'Analysis'         },
 ]
 
 export default function TabNav({ activeTab, onTabChange }) {

@@ -230,3 +230,24 @@ export function fetchProductLossDrilldown(productId, { start_date, end_date }) {
 export function fetchDashboard() {
   return apiFetch('/api/dashboard')
 }
+
+// ── Sales ────────────────────────────────────────────────────────────────────
+
+export function fetchSales(params = {}) {
+  const q = new URLSearchParams()
+  if (params.start_date) q.set('start_date', params.start_date)
+  if (params.end_date) q.set('end_date', params.end_date)
+  if (params.product_id) q.set('product_id', params.product_id)
+  const qs = q.toString()
+  return apiFetch(`/api/sales${qs ? `?${qs}` : ''}`).then(d => d.sales)
+}
+
+// ── Predictions ──────────────────────────────────────────────────────────────
+
+export function fetchDailyPlan(date) {
+  return apiFetch(`/api/predictions/daily-plan?date=${date}`).then(d => d.plan)
+}
+
+export function fetchProductHistory(productId) {
+  return apiFetch(`/api/predictions/product/${productId}/history`)
+}

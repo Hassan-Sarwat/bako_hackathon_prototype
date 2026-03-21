@@ -618,6 +618,55 @@ async def health():
 
 
 # ---------------------------------------------------------------------------
+# Sales endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/sales")
+async def get_sales(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    product_id: int | None = None,
+):
+    """Get sales data with optional filters."""
+    items = db.get_sales(start_date=start_date, end_date=end_date, product_id=product_id)
+    return {"sales": items}
+
+
+# ---------------------------------------------------------------------------
+# Prediction endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/predictions")
+async def get_predictions(
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
+    """Get predictions for a date range."""
+    items = db.get_predictions(start_date=start_date, end_date=end_date)
+    return {"predictions": items}
+
+
+@app.get("/api/predictions/daily-plan")
+async def get_daily_plan(date: str):
+    """Get the recommended cooking plan for a specific day."""
+    plan = db.get_prediction_daily_plan(date)
+    return {"date": date, "plan": plan}
+
+
+@app.get("/api/predictions/product/{product_id}/history")
+async def get_product_prediction_history(product_id: int):
+    """Get last 2 weeks of actual sales + next 3 days predictions."""
+    history = db.get_product_sales_history(product_id, 14)
+    predictions = db.get_product_predictions(product_id, 3)
+    product = db.get_baked_good(product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
+    return {
+        "product": {"id": product["id"], "name": product["name"], "price": product["price"]},
+        "history": history,
+        "predictions": predictions,
+    }
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
 def main():
