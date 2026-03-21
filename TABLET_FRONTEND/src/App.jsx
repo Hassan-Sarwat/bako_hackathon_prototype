@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Settings, BarChart2, Briefcase, Wrench, ClipboardCheck, Mic, MicOff } from 'lucide-react';
-import { VoiceSession } from './voice_session';
+import React, { useState, useRef } from 'react';
+import { Settings, Briefcase, Wrench, ClipboardCheck, Mic, MicOff } from 'lucide-react';
+import { sendAudioToGemini } from './gemini';
 
 const shortcuts = [
   { icon: <Briefcase size={24} className="text-[#4A7C7A]" />, label: 'Bestellung', bgColor: '#D1F2F2' },
@@ -8,45 +8,72 @@ const shortcuts = [
   { icon: <ClipboardCheck size={24} className="text-[#4A3728]" />, label: 'Prüfung', bgColor: '#E8E6D8' },
 ];
 
-const App = () => {
-  const [active, setActive] = useState(false);
-  const [status, setStatus] = useState('disconnected');
-  const [transcript, setTranscript] = useState('');
-  const voiceSessionRef = useRef(null);
+// status: 'idle' | 'recording' | 'processing' | 'error'
+const STATUS_LABEL = {
+  idle:       'Voice: idle',
+  recording:  'Recording…',
+  processing: 'Processing…',
+  error:      'Voice: error',
+};
 
-  const toggleVoice = async () => {
-    if (active) {
-      voiceSessionRef.current?.stop();
-      setActive(false);
-    } else {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        alert('Please set VITE_GEMINI_API_KEY in .env');
-        return;
-      }
-      
-      voiceSessionRef.current = new VoiceSession(
-        apiKey,
-        'alice', // Example staff ID
-        (text) => setTranscript(text),
-        (newStatus) => setStatus(newStatus)
-      );
-      
+const App = () => {
+  const [active, setActive] = useState(false);       // mic button pressed
+  const [status, setStatus] = useState('idle');
+  const [transcript, setTranscript] = useState('');
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
+
+  const startRecording = async () => {
+    chunksRef.current = [];
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      alert('Microphone access denied.');
+      return;
+    }
+
+    const recorder = new MediaRecorder(stream);
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+
+    recorder.onstop = async () => {
+      // Stop all mic tracks
+      stream.getTracks().forEach((t) => t.stop());
+
+      const audioBlob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+      setStatus('processing');
       try {
-        await voiceSessionRef.current.start();
-        setActive(true);
+        const reply = await sendAudioToGemini(audioBlob);
+        setTranscript(reply);
+        setStatus('idle');
       } catch (err) {
         console.error(err);
+        setTranscript('Error: ' + err.message);
         setStatus('error');
       }
-    }
+      setActive(false);
+    };
+
+    recorder.start();
+    setActive(true);
+    setStatus('recording');
   };
 
-  useEffect(() => {
-    return () => {
-      voiceSessionRef.current?.stop();
-    };
-  }, []);
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+  };
+
+  const toggleVoice = () => {
+    if (active) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center p-6 font-sans text-[#4A3728]">
@@ -70,12 +97,12 @@ const App = () => {
       {/* Status Pill */}
       <div className="bg-[#F0F0EA] px-6 py-2 rounded-full flex items-center gap-3 mb-12 shadow-sm border border-stone-100">
         <div className="flex items-end gap-[2px] h-4">
-          <div className={`w-1 h-2/3 rounded-full ${status === 'connected' ? 'bg-[#4A7C7A] animate-pulse' : 'bg-stone-400'}`}></div>
-          <div className={`w-1 h-full rounded-full ${status === 'connected' ? 'bg-[#4A7C7A] animate-pulse delay-75' : 'bg-stone-400'}`}></div>
-          <div className={`w-1 h-1/2 rounded-full ${status === 'connected' ? 'bg-[#4A7C7A] animate-pulse delay-150' : 'bg-stone-400'}`}></div>
+          <div className={`w-1 h-2/3 rounded-full ${status === 'recording' || status === 'processing' ? 'bg-[#4A7C7A] animate-pulse' : 'bg-stone-400'}`}></div>
+          <div className={`w-1 h-full rounded-full ${status === 'recording' || status === 'processing' ? 'bg-[#4A7C7A] animate-pulse delay-75' : 'bg-stone-400'}`}></div>
+          <div className={`w-1 h-1/2 rounded-full ${status === 'recording' || status === 'processing' ? 'bg-[#4A7C7A] animate-pulse delay-150' : 'bg-stone-400'}`}></div>
         </div>
         <span className="text-[11px] font-bold uppercase tracking-widest text-stone-600">
-          {status === 'connected' ? 'Kitchen Sync Active' : `Voice: ${status}`}
+          {STATUS_LABEL[status] ?? `Voice: ${status}`}
         </span>
       </div>
 
