@@ -1,0 +1,669 @@
+openapi: 3.1.0
+info:
+  title: Bakery Voice Assistant API
+  description: |
+    REST API for the Bakery Voice Assistant dashboard.
+    Serves checklist progress, inventory logs, cleaning tasks, tickets, and audit history.
+    All write operations require a staff_id (sent as a query parameter or in the request body).
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+paths:
+
+  # ── Checklists ──────────────────────────────────────────────────────────
+
+  /api/checklists/{checklist_type}/items:
+    get:
+      operationId: getChecklistItems
+      summary: Get all items for a checklist
+      description: Returns every item (complete and incomplete) for the given checklist type.
+      tags: [Checklists]
+      parameters:
+        - $ref: "#/components/parameters/ChecklistType"
+      responses:
+        "200":
+          description: List of checklist items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ChecklistItem"
+
+  /api/checklists/{checklist_type}/remaining:
+    get:
+      operationId: getRemainingItems
+      summary: Get incomplete items for a checklist
+      tags: [Checklists]
+      parameters:
+        - $ref: "#/components/parameters/ChecklistType"
+      responses:
+        "200":
+          description: Incomplete items only
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ChecklistItemBrief"
+
+  /api/checklists/{checklist_type}/summary:
+    get:
+      operationId: getChecklistSummary
+      summary: Get completion summary for a checklist
+      tags: [Checklists]
+      parameters:
+        - $ref: "#/components/parameters/ChecklistType"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChecklistSummary"
+
+  /api/checklists/items/{item_id}/complete:
+    post:
+      operationId: markItemComplete
+      summary: Mark a checklist item as complete
+      tags: [Checklists]
+      parameters:
+        - $ref: "#/components/parameters/ItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staff_id]
+              properties:
+                staff_id:
+                  type: string
+                  example: "alice"
+                notes:
+                  type: string
+                  nullable: true
+                  example: "Wiped with food-safe sanitizer"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResult"
+
+  /api/checklists/items/{item_id}/incomplete:
+    post:
+      operationId: markItemIncomplete
+      summary: Undo completion of a checklist item
+      tags: [Checklists]
+      parameters:
+        - $ref: "#/components/parameters/ItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staff_id]
+              properties:
+                staff_id:
+                  type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResult"
+
+  # ── Inventory ───────────────────────────────────────────────────────────
+
+  /api/inventory:
+    get:
+      operationId: getInventoryLog
+      summary: Get inventory log entries
+      description: Returns the most recent inventory counts logged by staff.
+      tags: [Inventory]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InventoryEntry"
+
+    post:
+      operationId: addInventoryCount
+      summary: Log an inventory count
+      tags: [Inventory]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item_name, count, staff_id]
+              properties:
+                item_name:
+                  type: string
+                  example: "All-purpose flour"
+                count:
+                  type: integer
+                  example: 12
+                staff_id:
+                  type: string
+                  example: "alice"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResult"
+
+  # ── Cleaning Tasks ──────────────────────────────────────────────────────
+
+  /api/cleaning/tasks:
+    get:
+      operationId: getCleaningTasks
+      summary: Get today's cleaning tasks
+      description: Returns all cleaning tasks for today with completion status. Tasks are auto-created daily.
+      tags: [Cleaning]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CleaningTask"
+
+  /api/cleaning/remaining:
+    get:
+      operationId: getIncompleteCleaningTasks
+      summary: Get today's remaining cleaning tasks
+      tags: [Cleaning]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CleaningTaskBrief"
+
+  /api/cleaning/summary:
+    get:
+      operationId: getCleaningSummary
+      summary: Get today's cleaning completion summary
+      tags: [Cleaning]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CleaningSummary"
+
+  /api/cleaning/tasks/{task_id}/complete:
+    post:
+      operationId: markCleaningComplete
+      summary: Mark a cleaning task as complete
+      tags: [Cleaning]
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staff_id]
+              properties:
+                staff_id:
+                  type: string
+                notes:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResult"
+
+  /api/cleaning/tasks/{task_id}/incomplete:
+    post:
+      operationId: markCleaningIncomplete
+      summary: Undo completion of a cleaning task
+      tags: [Cleaning]
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staff_id]
+              properties:
+                staff_id:
+                  type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResult"
+
+  # ── Tickets ─────────────────────────────────────────────────────────────
+
+  /api/tickets:
+    get:
+      operationId: getOpenTickets
+      summary: Get all open tickets sorted by urgency
+      tags: [Tickets]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tickets:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Ticket"
+
+    post:
+      operationId: raiseTicket
+      summary: Raise a new ticket for the office
+      tags: [Tickets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description, category, staff_id]
+              properties:
+                title:
+                  type: string
+                  example: "Oven #2 not heating"
+                description:
+                  type: string
+                  example: "Oven 2 won't reach temperature. Noticed at 6am during pre-heat."
+                category:
+                  type: string
+                  enum: [machine_breakdown, no_show, stock_shortage, safety, other]
+                  example: "machine_breakdown"
+                urgency:
+                  type: string
+                  enum: [low, normal, high, urgent]
+                  default: "normal"
+                staff_id:
+                  type: string
+                  example: "alice"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  ticket_id:
+                    type: integer
+                  title:
+                    type: string
+                  category:
+                    type: string
+                  urgency:
+                    type: string
+
+  # ── Audit Log ───────────────────────────────────────────────────────────
+
+  /api/audit:
+    get:
+      operationId: getAuditLog
+      summary: Get recent audit log entries
+      description: Returns conversation and tool-call history. Optionally filter by staff.
+      tags: [Audit]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: staff_id
+          in: query
+          schema:
+            type: string
+          description: Filter entries by staff member
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditEntry"
+
+  # ── Dashboard (convenience) ─────────────────────────────────────────────
+
+  /api/dashboard:
+    get:
+      operationId: getDashboard
+      summary: Get full dashboard state in one call
+      description: |
+        Returns all data needed to render the dashboard in a single request:
+        sanitation checklist, inventory checklist, cleaning tasks, and open tickets.
+        Useful for initial page load to avoid multiple round-trips.
+      tags: [Dashboard]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardResponse"
+
+  # ── Admin ───────────────────────────────────────────────────────────────
+
+  /api/admin/reset-checklists:
+    post:
+      operationId: resetChecklists
+      summary: Reset all checklists for a new day
+      tags: [Admin]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResult"
+
+# ---------------------------------------------------------------------------
+# Components
+# ---------------------------------------------------------------------------
+components:
+
+  parameters:
+    ChecklistType:
+      name: checklist_type
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [sanitation, inventory]
+
+    ItemId:
+      name: item_id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+    TaskId:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  schemas:
+
+    # ── Checklist ──
+
+    ChecklistItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        checklist_type:
+          type: string
+          enum: [sanitation, inventory]
+        item_name:
+          type: string
+          example: "Sanitize prep surfaces"
+        is_complete:
+          type: boolean
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_by:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    ChecklistItemBrief:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          description: The item name
+
+    ChecklistSummary:
+      type: object
+      properties:
+        checklist_type:
+          type: string
+        completed:
+          type: integer
+        total:
+          type: integer
+        remaining:
+          type: integer
+
+    # ── Inventory ──
+
+    InventoryEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        item_name:
+          type: string
+          example: "All-purpose flour"
+        count:
+          type: integer
+          example: 12
+        logged_by:
+          type: string
+          nullable: true
+        logged_at:
+          type: string
+          format: date-time
+
+    # ── Cleaning ──
+
+    CleaningTask:
+      type: object
+      properties:
+        id:
+          type: integer
+        area:
+          type: string
+          example: "Prep surfaces"
+        action:
+          type: string
+          example: "Sanitize all prep surfaces and countertops"
+        is_complete:
+          type: boolean
+        completed_by:
+          type: string
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    CleaningTaskBrief:
+      type: object
+      properties:
+        id:
+          type: integer
+        area:
+          type: string
+        action:
+          type: string
+
+    CleaningSummary:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        completed:
+          type: integer
+        total:
+          type: integer
+        remaining:
+          type: integer
+        all_done:
+          type: boolean
+
+    # ── Tickets ──
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum: [machine_breakdown, no_show, stock_shortage, safety, other]
+        urgency:
+          type: string
+          enum: [low, normal, high, urgent]
+        raised_by:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Audit ──
+
+    AuditEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        staff_id:
+          type: string
+          nullable: true
+        user_message:
+          type: string
+          nullable: true
+        ai_model:
+          type: string
+          nullable: true
+        ai_response:
+          type: string
+          nullable: true
+        tool_name:
+          type: string
+          nullable: true
+        tool_args:
+          type: string
+          nullable: true
+          description: JSON-encoded tool arguments
+        tool_result:
+          type: string
+          nullable: true
+          description: JSON-encoded tool result
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Dashboard ──
+
+    DashboardResponse:
+      type: object
+      properties:
+        sanitation:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ChecklistItem"
+            summary:
+              $ref: "#/components/schemas/ChecklistSummary"
+        inventory:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ChecklistItem"
+            summary:
+              $ref: "#/components/schemas/ChecklistSummary"
+        cleaning:
+          type: object
+          properties:
+            tasks:
+              type: array
+              items:
+                $ref: "#/components/schemas/CleaningTask"
+            summary:
+              $ref: "#/components/schemas/CleaningSummary"
+        tickets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ticket"
+
+    # ── Shared ──
+
+    MutationResult:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success, error]
+        message:
+          type: string
+          nullable: true
+          description: Error message (only present when status is "error")
+      required: [status]

@@ -8,39 +8,39 @@ from .config import DB_PATH
 
 # Default checklist items for a bakery
 SANITATION_ITEMS = [
-    "Sanitize prep surfaces",
-    "Clean oven interiors",
-    "Wash mixing bowls and utensils",
-    "Mop bakery floor",
-    "Clean display cases",
-    "Sanitize sink and drain",
-    "Empty trash bins",
-    "Wipe down equipment handles",
+    "Arbeitsflächen desinfizieren",
+    "Öfen innen reinigen",
+    "Rührschüsseln und Utensilien waschen",
+    "Bäckereiboden wischen",
+    "Vitrinen reinigen",
+    "Spülbecken und Abfluss desinfizieren",
+    "Mülleimer leeren",
+    "Gerätegriffe abwischen",
 ]
 
 INVENTORY_ITEMS = [
-    "All-purpose flour",
-    "Sugar",
+    "Weizenmehl",
+    "Zucker",
     "Butter",
-    "Eggs",
-    "Yeast",
-    "Vanilla extract",
-    "Chocolate chips",
-    "Baking powder",
+    "Eier",
+    "Hefe",
+    "Vanilleextrakt",
+    "Schokoladenstückchen",
+    "Backpulver",
 ]
 
 # Default daily cleaning tasks
 CLEANING_TASKS = [
-    {"area": "Prep surfaces", "action": "Sanitize all prep surfaces and countertops"},
-    {"area": "Ovens", "action": "Clean oven interiors and racks"},
-    {"area": "Mixing equipment", "action": "Wash mixing bowls, utensils, and attachments"},
-    {"area": "Floor", "action": "Sweep and mop bakery floor"},
-    {"area": "Display cases", "action": "Clean and sanitize display cases"},
-    {"area": "Sinks and drains", "action": "Sanitize sinks and clear drains"},
-    {"area": "Trash and recycling", "action": "Empty all trash and recycling bins"},
-    {"area": "Equipment handles", "action": "Wipe down all equipment handles and knobs"},
-    {"area": "Storage areas", "action": "Organize and clean storage shelves"},
-    {"area": "Restrooms", "action": "Clean and restock restrooms"},
+    {"area": "Arbeitsflächen", "action": "Alle Arbeitsflächen und Theken desinfizieren"},
+    {"area": "Öfen", "action": "Öfen und Roste innen reinigen"},
+    {"area": "Mischgeräte", "action": "Rührschüsseln, Utensilien und Aufsätze waschen"},
+    {"area": "Boden", "action": "Bäckereiboden kehren und wischen"},
+    {"area": "Vitrinen", "action": "Vitrinen reinigen und desinfizieren"},
+    {"area": "Spülbecken und Abflüsse", "action": "Spülbecken desinfizieren und Abflüsse reinigen"},
+    {"area": "Müll und Recycling", "action": "Alle Müll- und Recyclingbehälter leeren"},
+    {"area": "Gerätegriffe", "action": "Alle Gerätegriffe und Knöpfe abwischen"},
+    {"area": "Lagerbereiche", "action": "Lagerregale ordnen und reinigen"},
+    {"area": "Toiletten", "action": "Toiletten reinigen und auffüllen"},
 ]
 
 
@@ -96,6 +96,18 @@ def init_db() -> None:
             raised_by TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             resolved_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            staff_id TEXT,
+            user_message TEXT,
+            ai_model TEXT,
+            ai_response TEXT,
+            tool_name TEXT,
+            tool_args TEXT,
+            tool_result TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
     """)
 
@@ -396,6 +408,77 @@ def get_open_tickets() -> list[dict]:
     ]
     conn.close()
     return tickets
+
+
+def log_audit(
+    staff_id: str | None = None,
+    user_message: str | None = None,
+    ai_model: str | None = None,
+    ai_response: str | None = None,
+    tool_name: str | None = None,
+    tool_args: str | None = None,
+    tool_result: str | None = None,
+) -> dict:
+    """Log an interaction to the audit table."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO audit_log (staff_id, user_message, ai_model, ai_response, tool_name, tool_args, tool_result) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (staff_id, user_message, ai_model, ai_response, tool_name, tool_args, tool_result),
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "success", "audit_id": cursor.lastrowid}
+
+
+def get_audit_log(limit: int = 50, staff_id: str | None = None) -> list[dict]:
+    """Get recent audit log entries, optionally filtered by staff_id."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    if staff_id:
+        cursor.execute(
+            "SELECT id, staff_id, user_message, ai_model, ai_response, tool_name, tool_args, tool_result, created_at "
+            "FROM audit_log WHERE staff_id = ? ORDER BY created_at DESC LIMIT ?",
+            (staff_id, limit),
+        )
+    else:
+        cursor.execute(
+            "SELECT id, staff_id, user_message, ai_model, ai_response, tool_name, tool_args, tool_result, created_at "
+            "FROM audit_log ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        )
+    entries = [
+        {
+            "id": row["id"],
+            "staff_id": row["staff_id"],
+            "user_message": row["user_message"],
+            "ai_model": row["ai_model"],
+            "ai_response": row["ai_response"],
+            "tool_name": row["tool_name"],
+            "tool_args": row["tool_args"],
+            "tool_result": row["tool_result"],
+            "created_at": row["created_at"],
+        }
+        for row in cursor.fetchall()
+    ]
+    conn.close()
+    return entries
+
+
+def log_conversation(
+    staff_id: str | None = None,
+    user_message: str | None = None,
+    ai_model: str | None = None,
+    ai_response: str | None = None,
+) -> dict:
+    """Log a conversation turn (no tool call) to the audit table."""
+    return log_audit(
+        staff_id=staff_id,
+        user_message=user_message,
+        ai_model=ai_model,
+        ai_response=ai_response,
+    )
 
 
 def reset_checklists() -> dict:

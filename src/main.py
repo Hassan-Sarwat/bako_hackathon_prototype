@@ -1,191 +1,247 @@
-"""Bakery Voice Assistant - main entry point.
+"""Bakery Voice Assistant - FastAPI backend.
 
-Connects to Gemini Live API for real-time voice interaction,
-with tool calling for checklist and inventory management.
+Exposes REST API endpoints for checklist, cleaning, inventory,
+and ticket management. The voice assistant (Gemini Live API)
+runs alongside the API server.
 """
 
-import asyncio
-import sys
-import traceback
+from contextlib import asynccontextmanager
 
-import pyaudio
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from .config import (
-    CHANNELS,
-    CHUNK_SIZE,
-    MODEL,
-    RECEIVE_SAMPLE_RATE,
-    SEND_SAMPLE_RATE,
-    SYSTEM_INSTRUCTION,
-)
-from .db import init_db
-from .tool_handlers import handle_tool_call
-from .tools import all_tools
+from . import db
 
 load_dotenv()
 
-# Audio format
-FORMAT = pyaudio.paInt16
 
-
-async def run(staff_id: str | None = None):
-    """Main async loop: connect to Gemini Live API and stream audio."""
-    # Initialize database
-    init_db()
+# ---------------------------------------------------------------------------
+# Lifespan: initialise DB on startup
+# ---------------------------------------------------------------------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db.init_db()
     print("Database initialized with bakery checklists.")
-    if staff_id:
-        print(f"Logged in as: {staff_id}")
-    else:
-        print("WARNING: No staff member identified. Write operations will be blocked.")
-        print("         Pass --staff-id <name> to identify yourself.\n")
+    yield
 
-    # Create Gemini client
-    client = genai.Client(http_options={"api_version": "v1alpha"})
 
-    # Live API config
-    config = types.LiveConnectConfig(
-        response_modalities=["AUDIO"],
-        system_instruction=types.Content(
-            parts=[types.Part(text=SYSTEM_INSTRUCTION)]
-        ),
-        tools=[all_tools],
-        speech_config=types.SpeechConfig(
-            voice_config=types.VoiceConfig(
-                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Aoede")
-            )
-        ),
+app = FastAPI(
+    title="Bakery Assistant API",
+    description="Backend API for the Bakery Voice Assistant",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# CORS – allow the frontend (any origin for now during development)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ---------------------------------------------------------------------------
+# Request / response models
+# ---------------------------------------------------------------------------
+class CompleteItemRequest(BaseModel):
+    notes: str | None = None
+
+
+class InventoryCountRequest(BaseModel):
+    item_name: str
+    count: int
+
+
+class RaiseTicketRequest(BaseModel):
+    title: str
+    description: str
+    category: str
+    urgency: str = "normal"
+
+
+# ---------------------------------------------------------------------------
+# Checklist endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/checklist/{checklist_type}/items")
+async def get_remaining_items(checklist_type: str):
+    """Get all remaining incomplete items for a checklist type."""
+    items = db.get_incomplete_items(checklist_type)
+    return {"items": items}
+
+
+@app.put("/api/checklist/items/{item_id}/complete")
+async def mark_item_complete(
+    item_id: int,
+    body: CompleteItemRequest | None = None,
+    x_staff_id: str | None = Header(None),
+):
+    """Mark a checklist item as complete."""
+    notes = body.notes if body else None
+    result = db.mark_item_complete(item_id, notes, staff_id=x_staff_id)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
+
+
+@app.put("/api/checklist/items/{item_id}/incomplete")
+async def mark_item_incomplete(
+    item_id: int,
+    x_staff_id: str | None = Header(None),
+):
+    """Mark a checklist item as incomplete."""
+    result = db.mark_item_incomplete(item_id, staff_id=x_staff_id)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
+
+
+@app.get("/api/checklist/{checklist_type}/summary")
+async def get_checklist_summary(checklist_type: str):
+    """Get completion summary for a checklist."""
+    return db.get_checklist_summary(checklist_type)
+
+
+# ---------------------------------------------------------------------------
+# Cleaning endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/cleaning/tasks")
+async def get_cleaning_tasks():
+    """Get all of today's cleaning tasks."""
+    tasks = db.get_cleaning_tasks()
+    return {"tasks": tasks}
+
+
+@app.get("/api/cleaning/tasks/incomplete")
+async def get_incomplete_cleaning_tasks():
+    """Get today's remaining incomplete cleaning tasks."""
+    tasks = db.get_incomplete_cleaning_tasks()
+    return {"tasks": tasks}
+
+
+@app.put("/api/cleaning/tasks/{task_id}/complete")
+async def mark_cleaning_complete(
+    task_id: int,
+    body: CompleteItemRequest | None = None,
+    x_staff_id: str | None = Header(None),
+):
+    """Mark a cleaning task as complete."""
+    notes = body.notes if body else None
+    result = db.mark_cleaning_complete(task_id, notes, staff_id=x_staff_id)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
+
+
+@app.put("/api/cleaning/tasks/{task_id}/incomplete")
+async def mark_cleaning_incomplete(
+    task_id: int,
+    x_staff_id: str | None = Header(None),
+):
+    """Mark a cleaning task as incomplete."""
+    result = db.mark_cleaning_incomplete(task_id, staff_id=x_staff_id)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
+
+
+@app.get("/api/cleaning/summary")
+async def get_cleaning_summary():
+    """Get today's cleaning progress summary."""
+    return db.get_cleaning_summary()
+
+
+# ---------------------------------------------------------------------------
+# Inventory endpoints
+# ---------------------------------------------------------------------------
+@app.post("/api/inventory/count")
+async def add_inventory_count(
+    body: InventoryCountRequest,
+    x_staff_id: str | None = Header(None),
+):
+    """Log an inventory count for an item."""
+    result = db.add_inventory_count(body.item_name, body.count, staff_id=x_staff_id)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Ticket endpoints
+# ---------------------------------------------------------------------------
+@app.post("/api/tickets")
+async def raise_ticket(
+    body: RaiseTicketRequest,
+    x_staff_id: str | None = Header(None),
+):
+    """Raise a new ticket for the office."""
+    result = db.raise_ticket(
+        title=body.title,
+        description=body.description,
+        category=body.category,
+        urgency=body.urgency,
+        raised_by=x_staff_id,
     )
-
-    # Audio queues
-    audio_in_queue: asyncio.Queue[bytes] = asyncio.Queue()
-    audio_out_queue: asyncio.Queue[bytes] = asyncio.Queue()
-
-    # PyAudio setup
-    pya = pyaudio.PyAudio()
-
-    async def listen_microphone():
-        """Capture audio from microphone and put into queue."""
-        mic_stream = pya.open(
-            format=FORMAT,
-            channels=CHANNELS,
-            rate=SEND_SAMPLE_RATE,
-            input=True,
-            frames_per_buffer=CHUNK_SIZE,
-        )
-        print("Microphone ready. Start speaking!")
-        print("(Press Ctrl+C to exit)\n")
-
-        try:
-            while True:
-                data = await asyncio.to_thread(mic_stream.read, CHUNK_SIZE, exception_on_overflow=False)
-                audio_in_queue.put_nowait(data)
-        except Exception:
-            pass
-        finally:
-            mic_stream.stop_stream()
-            mic_stream.close()
-
-    async def send_audio(session):
-        """Send microphone audio to the Gemini session."""
-        while True:
-            data = await audio_in_queue.get()
-            await session.send_realtime_input(
-                audio=types.Blob(data=data, mime_type=f"audio/pcm;rate={SEND_SAMPLE_RATE}")
-            )
-
-    async def receive_audio(session):
-        """Receive responses from Gemini - handle both audio and tool calls."""
-        while True:
-            try:
-                async for response in session.receive():
-                    # Handle server content (audio responses)
-                    server_content = response.server_content
-                    if server_content and server_content.model_turn:
-                        for part in server_content.model_turn.parts:
-                            if part.inline_data:
-                                audio_out_queue.put_nowait(part.inline_data.data)
-
-                    # Handle tool calls
-                    if response.tool_call:
-                        function_responses = []
-                        for fc in response.tool_call.function_calls:
-                            result = await handle_tool_call(fc.name, fc.args, staff_id=staff_id)
-                            function_responses.append(
-                                types.FunctionResponse(
-                                    id=fc.id,
-                                    name=fc.name,
-                                    response=result,
-                                )
-                            )
-                        await session.send_tool_response(
-                            function_responses=function_responses
-                        )
-            except Exception as e:
-                if "close" in str(e).lower() or "cancelled" in str(e).lower():
-                    break
-                traceback.print_exc()
-                break
-
-    async def play_audio():
-        """Play received audio through speakers."""
-        speaker_stream = pya.open(
-            format=FORMAT,
-            channels=CHANNELS,
-            rate=RECEIVE_SAMPLE_RATE,
-            output=True,
-            frames_per_buffer=CHUNK_SIZE,
-        )
-        try:
-            while True:
-                data = await audio_out_queue.get()
-                await asyncio.to_thread(speaker_stream.write, data)
-        except Exception:
-            pass
-        finally:
-            speaker_stream.stop_stream()
-            speaker_stream.close()
-
-    print(f"Connecting to Gemini Live API ({MODEL})...")
-
-    async with client.aio.live.connect(model=MODEL, config=config) as session:
-        print("Connected! The assistant will greet you shortly.\n")
-
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(listen_microphone())
-            tg.create_task(send_audio(session))
-            tg.create_task(receive_audio(session))
-            tg.create_task(play_audio())
+    return result
 
 
+@app.get("/api/tickets")
+async def get_open_tickets():
+    """Get all currently open tickets."""
+    tickets = db.get_open_tickets()
+    return {"tickets": tickets}
+
+
+# ---------------------------------------------------------------------------
+# Audit log endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/audit")
+async def get_audit_log(
+    limit: int = 50,
+    staff_id: str | None = None,
+):
+    """Get recent audit log entries, optionally filtered by staff_id."""
+    entries = db.get_audit_log(limit=limit, staff_id=staff_id)
+    return {"entries": entries}
+
+
+# ---------------------------------------------------------------------------
+# Utility endpoints
+# ---------------------------------------------------------------------------
+@app.post("/api/checklists/reset")
+async def reset_checklists():
+    """Reset all checklist items to incomplete for a new day."""
+    return db.reset_checklists()
+
+
+@app.get("/api/health")
+async def health():
+    """Health check endpoint."""
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
 def main():
-    """Entry point."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Bakery Voice Assistant")
-    parser.add_argument(
-        "--staff-id",
-        type=str,
-        default=None,
-        help="Staff member identifier (will be NFC-based in production)",
-    )
-    args = parser.parse_args()
+    """Run the API server via uvicorn."""
+    import uvicorn
 
     print("=" * 50)
-    print("  Bakery Voice Assistant")
+    print("  Bakery Assistant API")
     print("  Sanitation & Inventory Checklist Manager")
     print("=" * 50)
     print()
-    print("TIP: Use headphones to prevent echo feedback.")
-    print()
 
-    try:
-        asyncio.run(run(staff_id=args.staff_id))
-    except KeyboardInterrupt:
-        print("\n\nGoodbye! Have a great baking day!")
-        sys.exit(0)
+    uvicorn.run(
+        "src.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+    )
 
 
 if __name__ == "__main__":
