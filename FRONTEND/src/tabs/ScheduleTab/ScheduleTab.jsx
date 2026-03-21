@@ -55,6 +55,59 @@ function getColor(name, colorMap) {
   return colorMap.current[name]
 }
 
+/**
+ * Compute side-by-side layout for overlapping events.
+ * Returns a Map of item.id → { col, totalCols }.
+ */
+function layoutEvents(dayItems) {
+  if (dayItems.length === 0) return new Map()
+
+  const sorted = [...dayItems].sort(
+    (a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time)
+  )
+
+  // columns tracks end-time per column (in minutes)
+  const columns = []
+  const placement = new Map()
+
+  for (const item of sorted) {
+    const start = timeToMinutes(item.start_time)
+    const end = timeToMinutes(item.end_time)
+
+    // find first column where the item doesn't overlap
+    let placed = false
+    for (let c = 0; c < columns.length; c++) {
+      if (columns[c] <= start) {
+        columns[c] = end
+        placement.set(item.id, { col: c })
+        placed = true
+        break
+      }
+    }
+    if (!placed) {
+      placement.set(item.id, { col: columns.length })
+      columns.push(end)
+    }
+  }
+
+  // For each event, find how many events are concurrent with it
+  for (const item of sorted) {
+    const start = timeToMinutes(item.start_time)
+    const end = timeToMinutes(item.end_time)
+    // Count how many events overlap with this one
+    let maxConcurrent = 0
+    for (const other of sorted) {
+      const oStart = timeToMinutes(other.start_time)
+      const oEnd = timeToMinutes(other.end_time)
+      if (oStart < end && oEnd > start) maxConcurrent++
+    }
+    const p = placement.get(item.id)
+    p.totalCols = Math.max(maxConcurrent, p.col + 1)
+  }
+
+  return placement
+}
+
 export default function ScheduleTab() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -234,6 +287,7 @@ export default function ScheduleTab() {
             const dateStr = toISO(day)
             const dayItems = byDate[dateStr] || []
             const isToday = dateStr === todayStr
+            const layout = layoutEvents(dayItems)
             return (
               <div
                 key={colIdx}
@@ -256,6 +310,9 @@ export default function ScheduleTab() {
                   const top = (startMin / totalMinutes) * 100
                   const height = ((endMin - startMin) / totalMinutes) * 100
                   const bg = getColor(item.employee_name, colorMap)
+                  const { col, totalCols } = layout.get(item.id)
+                  const widthPct = 100 / totalCols
+                  const leftPct = col * widthPct
 
                   return (
                     <div
@@ -264,6 +321,8 @@ export default function ScheduleTab() {
                       style={{
                         top: `${top}%`,
                         height: `${Math.max(height, 2)}%`,
+                        left: `${leftPct}%`,
+                        width: `calc(${widthPct}% - 2px)`,
                         backgroundColor: bg,
                       }}
                       onClick={e => { e.stopPropagation(); startEdit(item) }}

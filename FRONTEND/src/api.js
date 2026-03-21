@@ -20,6 +20,13 @@ export function fetchTickets() {
   return apiFetch('/api/tickets').then(d => d.tickets)
 }
 
+export function closeTicket(id) {
+  return apiFetch(`/api/tickets/${id}/close`, {
+    method: 'PUT',
+    headers: { 'x-staff-id': STAFF_ID },
+  })
+}
+
 // ── Inventory ─────────────────────────────────────────────────────────────────
 
 export function fetchInventory() {

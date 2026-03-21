@@ -14,9 +14,11 @@ function stockLabel(count) {
   return 'OK'
 }
 
-function formatTime(iso) {
+function formatDateTime(iso) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const d = new Date(iso)
+  return d.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+    ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function InventoryTab() {
@@ -52,7 +54,7 @@ export default function InventoryTab() {
           <span className="summary-low">{lowCount} low</span>
         )}
         {lastUpdated && (
-          <span className="summary-updated">Last logged {formatTime(lastUpdated)}</span>
+          <span className="summary-updated">Last logged {formatDateTime(lastUpdated)}</span>
         )}
       </div>
 
@@ -62,7 +64,7 @@ export default function InventoryTab() {
           <span>Count</span>
           <span>Status</span>
           <span>Logged by</span>
-          <span className="col-time">Time</span>
+          <span className="col-time">Date / Time</span>
         </div>
         {items.map(item => (
           <div key={item.id} className="inventory-row">
@@ -74,7 +76,7 @@ export default function InventoryTab() {
               {stockLabel(item.count)}
             </span>
             <span className="item-staff">{item.logged_by ?? '—'}</span>
-            <span className="item-time col-time">{formatTime(item.logged_at)}</span>
+            <span className="item-time col-time">{formatDateTime(item.logged_at)}</span>
           </div>
         ))}
       </div>
