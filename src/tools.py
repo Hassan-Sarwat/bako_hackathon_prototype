@@ -75,23 +75,69 @@ add_inventory_count_decl = types.FunctionDeclaration(
     ),
 )
 
-# Tool: Log cleaning activity
-log_cleaning_activity_decl = types.FunctionDeclaration(
-    name="log_cleaning_activity",
-    description="Log a cleaning activity with the area cleaned and what was done.",
+# Tool: Get today's cleaning tasks
+get_cleaning_tasks_decl = types.FunctionDeclaration(
+    name="get_cleaning_tasks",
+    description="Get all of today's cleaning tasks with their completion status. Tasks refresh automatically each day.",
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={},
+    ),
+)
+
+# Tool: Get remaining incomplete cleaning tasks
+get_incomplete_cleaning_tasks_decl = types.FunctionDeclaration(
+    name="get_incomplete_cleaning_tasks",
+    description="Get only the remaining incomplete cleaning tasks for today.",
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={},
+    ),
+)
+
+# Tool: Mark a cleaning task as complete
+mark_cleaning_complete_decl = types.FunctionDeclaration(
+    name="mark_cleaning_complete",
+    description="Mark a daily cleaning task as complete. Use after the user confirms they have finished a cleaning task.",
     parameters=types.Schema(
         type="OBJECT",
         properties={
-            "area": types.Schema(
-                type="STRING",
-                description="The area or surface that was cleaned",
+            "task_id": types.Schema(
+                type="INTEGER",
+                description="The ID of the cleaning task to mark as complete",
             ),
-            "action": types.Schema(
+            "notes": types.Schema(
                 type="STRING",
-                description="What cleaning action was performed",
+                description="Optional notes about the cleaning",
             ),
         },
-        required=["area", "action"],
+        required=["task_id"],
+    ),
+)
+
+# Tool: Mark a cleaning task as incomplete
+mark_cleaning_incomplete_decl = types.FunctionDeclaration(
+    name="mark_cleaning_incomplete",
+    description="Mark a daily cleaning task as incomplete, undoing a previous completion.",
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={
+            "task_id": types.Schema(
+                type="INTEGER",
+                description="The ID of the cleaning task to mark as incomplete",
+            ),
+        },
+        required=["task_id"],
+    ),
+)
+
+# Tool: Get cleaning summary
+get_cleaning_summary_decl = types.FunctionDeclaration(
+    name="get_cleaning_summary",
+    description="Get a summary of today's cleaning progress showing completed vs total tasks.",
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={},
     ),
 )
 
@@ -173,7 +219,11 @@ all_tools = types.Tool(
         mark_item_incomplete_decl,
         get_remaining_items_decl,
         add_inventory_count_decl,
-        log_cleaning_activity_decl,
+        get_cleaning_tasks_decl,
+        get_incomplete_cleaning_tasks_decl,
+        mark_cleaning_complete_decl,
+        mark_cleaning_incomplete_decl,
+        get_cleaning_summary_decl,
         get_checklist_summary_decl,
         raise_ticket_decl,
         get_open_tickets_decl,

@@ -31,10 +31,22 @@ async def handle_tool_call(function_name: str, args: dict, staff_id: str | None 
         result = await asyncio.to_thread(
             db.add_inventory_count, args["item_name"], args["count"], staff_id
         )
-    elif function_name == "log_cleaning_activity":
+    elif function_name == "get_cleaning_tasks":
+        tasks = await asyncio.to_thread(db.get_cleaning_tasks)
+        result = {"tasks": tasks}
+    elif function_name == "get_incomplete_cleaning_tasks":
+        tasks = await asyncio.to_thread(db.get_incomplete_cleaning_tasks)
+        result = {"tasks": tasks}
+    elif function_name == "mark_cleaning_complete":
         result = await asyncio.to_thread(
-            db.log_cleaning, args["area"], args["action"], staff_id
+            db.mark_cleaning_complete, args["task_id"], args.get("notes"), staff_id
         )
+    elif function_name == "mark_cleaning_incomplete":
+        result = await asyncio.to_thread(
+            db.mark_cleaning_incomplete, args["task_id"], staff_id
+        )
+    elif function_name == "get_cleaning_summary":
+        result = await asyncio.to_thread(db.get_cleaning_summary)
     elif function_name == "get_checklist_summary":
         result = await asyncio.to_thread(
             db.get_checklist_summary, args["checklist_type"]

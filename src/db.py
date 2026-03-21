@@ -1,7 +1,7 @@
 """SQLite database setup, schema, seed data, and query helpers."""
 
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from .config import DB_PATH
@@ -27,6 +27,20 @@ INVENTORY_ITEMS = [
     "Vanilla extract",
     "Chocolate chips",
     "Baking powder",
+]
+
+# Default daily cleaning tasks
+CLEANING_TASKS = [
+    {"area": "Prep surfaces", "action": "Sanitize all prep surfaces and countertops"},
+    {"area": "Ovens", "action": "Clean oven interiors and racks"},
+    {"area": "Mixing equipment", "action": "Wash mixing bowls, utensils, and attachments"},
+    {"area": "Floor", "action": "Sweep and mop bakery floor"},
+    {"area": "Display cases", "action": "Clean and sanitize display cases"},
+    {"area": "Sinks and drains", "action": "Sanitize sinks and clear drains"},
+    {"area": "Trash and recycling", "action": "Empty all trash and recycling bins"},
+    {"area": "Equipment handles", "action": "Wipe down all equipment handles and knobs"},
+    {"area": "Storage areas", "action": "Organize and clean storage shelves"},
+    {"area": "Restrooms", "action": "Clean and restock restrooms"},
 ]
 
 
@@ -61,12 +75,15 @@ def init_db() -> None:
             logged_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE TABLE IF NOT EXISTS cleaning_log (
+        CREATE TABLE IF NOT EXISTS cleaning_tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_date TEXT NOT NULL,
             area TEXT NOT NULL,
             action TEXT NOT NULL,
-            logged_by TEXT,
-            logged_at TEXT DEFAULT CURRENT_TIMESTAMP
+            is_complete INTEGER DEFAULT 0,
+            completed_at TEXT,
+            completed_by TEXT,
+            notes TEXT
         );
 
         CREATE TABLE IF NOT EXISTS tickets (
@@ -173,20 +190,138 @@ def add_inventory_count(item_name: str, count: int, staff_id: str | None = None)
     return {"status": "success", "item_name": item_name, "count": count, "logged_by": staff_id}
 
 
-def log_cleaning(area: str, action: str, staff_id: str | None = None) -> dict:
-    """Log a cleaning activity. Requires staff_id to be set."""
+def ensure_daily_cleaning_tasks() -> None:
+    """Create today's cleaning tasks if they don't exist yet. Called automatically."""
+    today = date.today().isoformat()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT COUNT(*) FROM cleaning_tasks WHERE task_date = ?", (today,)
+    )
+    if cursor.fetchone()[0] == 0:
+        for task in CLEANING_TASKS:
+            cursor.execute(
+                "INSERT INTO cleaning_tasks (task_date, area, action) VALUES (?, ?, ?)",
+                (today, task["area"], task["action"]),
+            )
+        conn.commit()
+    conn.close()
+
+
+def get_cleaning_tasks() -> list[dict]:
+    """Get today's cleaning tasks with their completion status."""
+    ensure_daily_cleaning_tasks()
+    today = date.today().isoformat()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, area, action, is_complete, completed_by, completed_at, notes "
+        "FROM cleaning_tasks WHERE task_date = ? ORDER BY id",
+        (today,),
+    )
+    tasks = [
+        {
+            "id": row["id"],
+            "area": row["area"],
+            "action": row["action"],
+            "is_complete": bool(row["is_complete"]),
+            "completed_by": row["completed_by"],
+            "completed_at": row["completed_at"],
+            "notes": row["notes"],
+        }
+        for row in cursor.fetchall()
+    ]
+    conn.close()
+    return tasks
+
+
+def get_incomplete_cleaning_tasks() -> list[dict]:
+    """Get today's remaining incomplete cleaning tasks."""
+    ensure_daily_cleaning_tasks()
+    today = date.today().isoformat()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, area, action FROM cleaning_tasks "
+        "WHERE task_date = ? AND is_complete = 0 ORDER BY id",
+        (today,),
+    )
+    tasks = [
+        {"id": row["id"], "area": row["area"], "action": row["action"]}
+        for row in cursor.fetchall()
+    ]
+    conn.close()
+    return tasks
+
+
+def mark_cleaning_complete(task_id: int, notes: str | None = None, staff_id: str | None = None) -> dict:
+    """Mark a cleaning task as complete. Requires staff_id."""
     if not staff_id:
-        return {"status": "error", "message": "Cannot log cleaning without a staff member identified. Please scan your NFC card first."}
+        return {"status": "error", "message": "Cannot mark task complete without a staff member identified. Please scan your NFC card first."}
 
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO cleaning_log (area, action, logged_by) VALUES (?, ?, ?)",
-        (area, action, staff_id),
+        "UPDATE cleaning_tasks SET is_complete = 1, completed_at = ?, completed_by = ?, notes = ? WHERE id = ?",
+        (datetime.now().isoformat(), staff_id, notes, task_id),
     )
     conn.commit()
+
+    cursor.execute("SELECT area, action FROM cleaning_tasks WHERE id = ?", (task_id,))
+    row = cursor.fetchone()
     conn.close()
-    return {"status": "success", "area": area, "action": action, "logged_by": staff_id}
+
+    if row:
+        return {"status": "success", "area": row["area"], "action": row["action"], "completed_by": staff_id}
+    return {"status": "error", "message": f"Cleaning task {task_id} not found"}
+
+
+def mark_cleaning_incomplete(task_id: int, staff_id: str | None = None) -> dict:
+    """Mark a cleaning task as incomplete. Requires staff_id."""
+    if not staff_id:
+        return {"status": "error", "message": "Cannot update task without a staff member identified. Please scan your NFC card first."}
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE cleaning_tasks SET is_complete = 0, completed_at = NULL, completed_by = NULL, notes = NULL WHERE id = ?",
+        (task_id,),
+    )
+    conn.commit()
+
+    cursor.execute("SELECT area FROM cleaning_tasks WHERE id = ?", (task_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if row:
+        return {"status": "success", "area": row["area"]}
+    return {"status": "error", "message": f"Cleaning task {task_id} not found"}
+
+
+def get_cleaning_summary() -> dict:
+    """Get today's cleaning task completion summary."""
+    ensure_daily_cleaning_tasks()
+    today = date.today().isoformat()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT COUNT(*) as total FROM cleaning_tasks WHERE task_date = ?", (today,)
+    )
+    total = cursor.fetchone()["total"]
+    cursor.execute(
+        "SELECT COUNT(*) as done FROM cleaning_tasks WHERE task_date = ? AND is_complete = 1",
+        (today,),
+    )
+    done = cursor.fetchone()["done"]
+    conn.close()
+
+    return {
+        "date": today,
+        "completed": done,
+        "total": total,
+        "remaining": total - done,
+        "all_done": done == total,
+    }
 
 
 def get_checklist_summary(checklist_type: str) -> dict:
