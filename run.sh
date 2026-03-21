@@ -17,6 +17,10 @@ sleep 2
 
 # Start frontend
 cd "$ROOT/FRONTEND"
+if [ ! -d "node_modules" ]; then
+  echo "  Installing frontend dependencies…"
+  npm install
+fi
 npm run dev &
 FRONTEND_PID=$!
 echo "  Frontend →  http://localhost:5173  (pid $FRONTEND_PID)"
