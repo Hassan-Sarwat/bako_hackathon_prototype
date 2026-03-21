@@ -40,7 +40,7 @@ args = parser.parse_args()
 
 # ── Patch DB for test isolation ──────────────────────────────
 if not args.use_real_db:
-    TEST_DB = Path(__file__).parent.parent.parent / "test_bakery.db"
+    TEST_DB = Path(__file__).parent / "test_bakery.db"
     import src.config
     src.config.DB_PATH = TEST_DB
     print(f"[setup] Using test database: {TEST_DB}")

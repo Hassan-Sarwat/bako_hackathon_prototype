@@ -38,7 +38,7 @@ args = parser.parse_args()
 
 # ── Patch DB path for test isolation ─────────────────────────
 if not args.use_real_db:
-    TEST_DB = Path(__file__).parent.parent.parent / "test_bakery.db"
+    TEST_DB = Path(__file__).parent / "test_bakery.db"
     # Monkey-patch before importing src modules
     import src.config
     src.config.DB_PATH = TEST_DB
