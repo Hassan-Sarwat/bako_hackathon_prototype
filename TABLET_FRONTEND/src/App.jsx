@@ -50,6 +50,12 @@ const App = () => {
         const reply = await sendAudioToGemini(audioBlob);
         setTranscript(reply);
         setStatus('idle');
+
+        // Speak the reply back using browser TTS
+        const utterance = new SpeechSynthesisUtterance(reply);
+        utterance.lang = 'de-DE'; // match the app language (German)
+        window.speechSynthesis.cancel(); // stop any previous speech
+        window.speechSynthesis.speak(utterance);
       } catch (err) {
         console.error(err);
         setTranscript('Error: ' + err.message);

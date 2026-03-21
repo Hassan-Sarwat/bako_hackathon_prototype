@@ -37,12 +37,19 @@ function blobToBase64(blob) {
  */
 export async function sendAudioToGemini(audioBlob, prompt = 'Transcribe and respond to the audio.') {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  console.log('[Gemini] API key present:', !!apiKey);
+
   if (!apiKey) {
     throw new Error('VITE_GEMINI_API_KEY is not set in .env');
   }
 
+  console.log('[Gemini] Audio blob size:', audioBlob.size, 'type:', audioBlob.type);
+
   const base64Audio = await blobToBase64(audioBlob);
   const mimeType = audioBlob.type || 'audio/webm';
+
+  console.log('[Gemini] Sending request to:', GEMINI_API_URL);
+  console.log('[Gemini] MIME type:', mimeType, '| base64 length:', base64Audio.length);
 
   const requestBody = {
     contents: [
@@ -66,13 +73,20 @@ export async function sendAudioToGemini(audioBlob, prompt = 'Transcribe and resp
     body: JSON.stringify(requestBody),
   });
 
+  console.log('[Gemini] Response status:', response.status, response.statusText);
+
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
+    console.error('[Gemini] Error body:', err);
     throw new Error(`Gemini API error ${response.status}: ${err?.error?.message ?? response.statusText}`);
   }
 
   const data = await response.json();
+  console.log('[Gemini] Full response:', JSON.stringify(data, null, 2));
+
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  console.log('[Gemini] Extracted text:', text);
+
   if (!text) {
     throw new Error('No text response from Gemini');
   }
