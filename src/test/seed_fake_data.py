@@ -375,8 +375,8 @@ AUDIT_INTERACTIONS = [
     {
         "user_message": "Wir haben 350 Eier gezählt.",
         "ai_response": "Alles klar, ich habe den Eierbestand auf 350 Stück aktualisiert.",
-        "tool_name": "update_material_count",
-        "tool_args": '{"item_name": "Eier", "count": 350}',
+        "tool_name": "adjust_material_count",
+        "tool_args": '{"item_name": "Eier", "delta": 350}',
     },
     {
         "user_message": "Die Knetmaschine macht komische Geräusche, kannst du ein Ticket erstellen?",
@@ -867,6 +867,15 @@ def create_tables(cursor: sqlite3.Cursor) -> None:
             weather_code INTEGER,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS inventory_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            material_id INTEGER NOT NULL,
+            snapshot_date TEXT NOT NULL,
+            count REAL NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE,
+            UNIQUE(material_id, snapshot_date)
+        );
     """)
 
 
@@ -1280,36 +1289,111 @@ def seed_raw_purchases(
     return total_purchased
 
 
-def update_material_counts(
-    cursor: sqlite3.Cursor,
-    total_usage: dict[str, float],
-    total_purchased: dict[str, float],
-) -> None:
-    """Set material inventory counts in BASE UNITS."""
+def seed_inventory_snapshots(cursor: sqlite3.Cursor) -> dict[str, float]:
+    """Simulate day-by-day inventory and record daily snapshots.
+
+    For LOSS_MATERIALS an extra 25-35 % waste is applied on top of recipe
+    usage each day, creating realistic unaccounted losses that the analysis
+    tab can detect.  For all other materials, actual usage equals recipe
+    usage so inventory tracks expectations closely.
+
+    Returns the final balance per material name (used to set materials.count).
+    """
     cursor.execute("SELECT id, item_name FROM materials")
-    mat_map = {row[1]: row[0] for row in cursor.fetchall()}
+    materials = {row[0]: row[1] for row in cursor.fetchall()}
+    name_to_id = {v: k for k, v in materials.items()}
 
-    for mat_name, mid in mat_map.items():
-        purchased = total_purchased.get(mat_name, 0.0)
-        used = total_usage.get(mat_name, 0.0)
-        expected_remaining = purchased - used
+    loss_material_ids = {name_to_id[n] for n in LOSS_MATERIALS if n in name_to_id}
 
-        if mat_name in LOSS_MATERIALS:
-            count = round(max(0, expected_remaining * random.uniform(0.0, 0.10)))
-        elif purchased > 0 and used > 0:
-            variance = random.uniform(-0.05, 0.05) * expected_remaining
-            count = round(max(0, expected_remaining + variance))
-        else:
-            count = round(purchased * random.uniform(0.5, 0.9)) if purchased > 0 else random.randint(500, 5000)
+    # ── recipe lookup: product_id → [(material_id, amount_value_per_unit)] ──
+    cursor.execute(
+        "SELECT product_id, material_id, amount_value "
+        "FROM product_materials WHERE amount_value IS NOT NULL"
+    )
+    recipes: dict[int, list[tuple[int, float]]] = {}
+    for row in cursor.fetchall():
+        recipes.setdefault(row[0], []).append((row[1], row[2]))
 
-        days_ago = random.randint(0, 2)
-        updated = TODAY - timedelta(days=days_ago)
-        cursor.execute(
-            "UPDATE materials SET count = ?, updated_at = ?, updated_by = ? WHERE id = ?",
-            (count, random_time(updated), random.choice(STAFF), mid),
+    # ── expected usage per (date, material) from cooking plans ──
+    cursor.execute(
+        "SELECT plan_date, product_id, quantity FROM cooking_plans ORDER BY plan_date"
+    )
+    usage_by_date: dict[str, dict[int, float]] = {}
+    for row in cursor.fetchall():
+        plan_date = row[0]
+        for mid, amount_val in recipes.get(row[1], []):
+            usage_by_date.setdefault(plan_date, {})
+            usage_by_date[plan_date][mid] = (
+                usage_by_date[plan_date].get(mid, 0.0) + amount_val * row[2]
+            )
+
+    # ── purchases per (date, material) ──
+    cursor.execute(
+        "SELECT purchase_date, material_id, amount_value, "
+        "COALESCE(quantity, 1) AS qty FROM raw_purchases ORDER BY purchase_date"
+    )
+    purch_by_date: dict[str, dict[int, float]] = {}
+    for row in cursor.fetchall():
+        purch_by_date.setdefault(row[0], {})
+        purch_by_date[row[0]][row[1]] = (
+            purch_by_date[row[0]].get(row[1], 0.0) + row[2] * row[3]
         )
 
-    print(f"  materials: counts updated for {len(mat_map)} items (base units)")
+    # ── ordered list of all days in the history window ──
+    all_dates = sorted({
+        (TODAY - timedelta(days=d)).date().isoformat()
+        for d in range(HISTORY_DAYS, -1, -1)
+    })
+
+    # ── starting inventory: ~7 days of average usage ──
+    total_usage_per_mat: dict[int, float] = {}
+    for day_usage in usage_by_date.values():
+        for mid, val in day_usage.items():
+            total_usage_per_mat[mid] = total_usage_per_mat.get(mid, 0.0) + val
+
+    balance: dict[int, float] = {}
+    for mid in materials:
+        avg_daily = total_usage_per_mat.get(mid, 0.0) / max(1, len(all_dates))
+        balance[mid] = round(avg_daily * 7, 2)
+
+    # ── simulate day by day ──
+    total = 0
+    for date_str in all_dates:
+        day_purchases = purch_by_date.get(date_str, {})
+        day_usage = usage_by_date.get(date_str, {})
+
+        for mid in materials:
+            # add purchases
+            balance[mid] = balance.get(mid, 0.0) + day_purchases.get(mid, 0.0)
+
+            # subtract usage (with extra waste for loss materials)
+            usage = day_usage.get(mid, 0.0)
+            if mid in loss_material_ids and usage > 0:
+                actual_usage = usage * random.uniform(1.25, 1.35)
+            else:
+                actual_usage = usage
+
+            balance[mid] -= actual_usage
+            balance[mid] = max(0.0, balance[mid])
+
+            cursor.execute(
+                "INSERT OR REPLACE INTO inventory_snapshots "
+                "(material_id, snapshot_date, count) VALUES (?, ?, ?)",
+                (mid, date_str, round(balance[mid], 2)),
+            )
+            total += 1
+
+    print(f"  inventory_snapshots: {total} rows ({len(all_dates)} days × {len(materials)} materials)")
+
+    # ── update materials.count to latest balance ──
+    for mid in materials:
+        cursor.execute(
+            "UPDATE materials SET count = ?, updated_at = ?, updated_by = ? WHERE id = ?",
+            (round(balance.get(mid, 0.0), 2), random_time(TODAY), random.choice(STAFF), mid),
+        )
+    print(f"  materials: counts updated from final snapshots")
+
+    return {materials[mid]: round(balance.get(mid, 0.0), 2) for mid in materials}
 
 
 def seed_predictions(cursor: sqlite3.Cursor) -> None:
@@ -1400,6 +1484,7 @@ def main() -> None:
     if reset:
         print("Deleting existing data ...")
         for table in [
+            "inventory_snapshots",
             "predictions", "sales", "weather_data",
             "cooking_plans", "raw_purchases", "product_materials", "baked_goods",
             "schedules", "checklist_items", "materials", "cleaning_tasks",
@@ -1422,12 +1507,8 @@ def main() -> None:
     total_usage = seed_cooking_plans(cursor)
     seed_sales(cursor)
     total_purchased = seed_raw_purchases(cursor, total_usage)
-    update_material_counts(cursor, total_usage, total_purchased)
+    final_inventory = seed_inventory_snapshots(cursor)
     seed_predictions(cursor)
-
-    # Read back inventory for summary
-    cursor.execute("SELECT item_name, count FROM materials")
-    inventory = {row[0]: row[1] for row in cursor.fetchall()}
 
     conn.commit()
     conn.close()
@@ -1436,17 +1517,19 @@ def main() -> None:
     print()
 
     # Print a summary of the analysis scenario
-    print("=== Analysis scenario summary ===")
-    print(f"  {'Material':<23} {'Purchased':>10} {'Expected':>10} {'Inventory':>10} {'Unaccounted':>12}  Flag")
-    print("  " + "-" * 80)
+    print("=== Analysis scenario summary (last 7 days simulation) ===")
+    print(f"  {'Material':<23} {'Start Inv':>10} {'Purchased':>10} {'Expected':>10} {'Exp. Rem.':>10} {'Actual Inv':>10} {'Unaccounted':>12}  Flag")
+    print("  " + "-" * 100)
     for mat_name in sorted(total_usage.keys()):
         expected = total_usage[mat_name]
         purchased = total_purchased.get(mat_name, 0.0)
-        inv = inventory.get(mat_name, 0)
+        inv = final_inventory.get(mat_name, 0)
+        # Starting inventory is roughly 7 days of average usage (from seed logic)
+        # For the summary we approximate; the real analysis uses snapshots
         expected_remaining = purchased - expected
-        unaccounted = expected_remaining - inv
+        unaccounted = max(0, expected_remaining - inv)
         flag = " !!!" if mat_name in LOSS_MATERIALS and unaccounted > 0 else ""
-        print(f"  {mat_name:<23} {purchased:>10.0f} {expected:>10.0f} {inv:>10} {unaccounted:>+11.0f}{flag}")
+        print(f"  {mat_name:<23} {'(snap)':>10} {purchased:>10.0f} {expected:>10.0f} {expected_remaining:>10.0f} {inv:>10} {unaccounted:>+11.0f}{flag}")
 
 
 if __name__ == "__main__":

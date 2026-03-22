@@ -37,9 +37,9 @@ async def handle_tool_call(
             db.get_incomplete_items, args["checklist_type"]
         )
         result = {"items": items}
-    elif function_name == "update_material_count":
+    elif function_name == "adjust_material_count":
         result = await asyncio.to_thread(
-            db.update_material_count, args["item_name"], args["count"], staff_id
+            db.adjust_material_count, args["item_name"], args["delta"], staff_id
         )
     elif function_name == "get_materials":
         materials = await asyncio.to_thread(db.get_materials)

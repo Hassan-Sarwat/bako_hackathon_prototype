@@ -63,6 +63,44 @@ export default function InventoryTab() {
   const lowCount = items.filter(i => stockClass(i.count, i.unit) === 'stock-low').length
   const shortages = needs.filter(n => n.has_shortage)
 
+  // Build a lookup from material name to needs data
+  const needsByName = {}
+  for (const n of needs) {
+    needsByName[n.material_name] = n
+  }
+
+  // Sort by urgency: critical > low > ok, then by % stock remaining after needs
+  const statusPriority = { 'stock-critical': 0, 'stock-low': 1, 'stock-ok': 2 }
+
+  const sortedItems = [...items].sort((a, b) => {
+    const aCls = stockClass(a.count, a.unit)
+    const bCls = stockClass(b.count, b.unit)
+
+    // 1) Status urgency first
+    if (statusPriority[aCls] !== statusPriority[bCls]) {
+      return statusPriority[aCls] - statusPriority[bCls]
+    }
+
+    // 2) % of stock remaining after forecast needs (lower remaining = higher urgency)
+    const aNeed = needsByName[a.item_name]
+    const bNeed = needsByName[b.item_name]
+    const aRemainPct = aNeed && aNeed.needed > 0
+      ? (a.count - aNeed.needed) / a.count
+      : 1 // no forecast data = assume safe
+    const bRemainPct = bNeed && bNeed.needed > 0
+      ? (b.count - bNeed.needed) / b.count
+      : 1
+    return aRemainPct - bRemainPct
+  })
+
+  // Items where stock covers the 3-day need but leaves <=20% remaining
+  function isRunningLow(item) {
+    const need = needsByName[item.item_name]
+    if (!need || need.needed <= 0 || need.has_shortage) return false
+    const remainPct = (item.count - need.needed) / item.count
+    return remainPct <= 0.2
+  }
+
   return (
     <div className="inventory-tab">
       <div className="inventory-summary">
@@ -78,66 +116,52 @@ export default function InventoryTab() {
         )}
       </div>
 
-      {/* Material needs section */}
-      {needs.length > 0 && (
-        <div className="needs-section">
-          <h3 className="needs-title">Material Needs — Next 3 Days (based on forecast)</h3>
-          <div className="needs-grid">
-            <div className="needs-header">
-              <span>Material</span>
-              <span>Needed</span>
-              <span>In Stock</span>
-              <span>Shortage</span>
-              <span>Status</span>
-            </div>
-            {needs.map(n => (
-              <div key={n.material_id} className={`needs-row ${n.has_shortage ? 'needs-row--shortage' : ''}`}>
-                <span className="item-name">{n.material_name}</span>
-                <span>{formatAmount(n.needed, n.unit)}</span>
-                <span>{formatAmount(n.current_stock, n.unit)}</span>
-                <span className={n.has_shortage ? 'val-shortage' : ''}>
-                  {n.has_shortage ? formatAmount(n.shortage, n.unit) : '—'}
-                </span>
-                <span>
-                  {n.has_shortage
-                    ? <span className="needs-badge needs-badge--shortage">Order needed</span>
-                    : <span className="needs-badge needs-badge--ok">Sufficient</span>
-                  }
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Current inventory */}
       <div className="inventory-grid">
         <div className="inventory-header">
           <span>Ingredient</span>
           <span>Stock</span>
           <span>Status</span>
+          <span>Needed</span>
+          <span>Shortage</span>
           <span className="col-price">Last Price</span>
           <span>Logged by</span>
           <span className="col-time">Date / Time</span>
         </div>
-        {items.map(item => (
-          <div key={item.id} className="inventory-row">
-            <span className="item-name">{item.item_name}</span>
-            <span className={`item-count ${stockClass(item.count, item.unit)}`}>
-              {formatAmount(item.count, item.unit)}
-            </span>
-            <span className={`item-status ${stockClass(item.count, item.unit)}`}>
-              {stockLabel(item.count, item.unit)}
-            </span>
-            <span className="item-last-price col-price">
-              {item.last_purchase_price != null
-                ? <>{item.last_purchase_price.toFixed(2)} <span className="price-amount">({item.last_purchase_amount})</span></>
-                : '—'}
-            </span>
-            <span className="item-staff">{item.logged_by ?? '—'}</span>
-            <span className="item-time col-time">{formatDateTime(item.logged_at)}</span>
-          </div>
-        ))}
+        {sortedItems.map(item => {
+          const need = needsByName[item.item_name]
+          const runningLow = isRunningLow(item)
+          const remainPct = need && need.needed > 0
+            ? Math.round(((item.count - need.needed) / item.count) * 100)
+            : null
+          return (
+            <div key={item.id} className={`inventory-row ${need?.has_shortage ? 'inventory-row--shortage' : ''} ${runningLow ? 'inventory-row--running-low' : ''}`}>
+              <span className="item-name">{item.item_name}</span>
+              <span className={`item-count ${stockClass(item.count, item.unit)}`}>
+                {formatAmount(item.count, item.unit)}
+              </span>
+              <span className={`item-status ${stockClass(item.count, item.unit)}`}>
+                {stockLabel(item.count, item.unit)}
+              </span>
+              <span className="item-needed">
+                {need ? formatAmount(need.needed, need.unit) : '—'}
+              </span>
+              <span className={`item-shortage ${need?.has_shortage ? 'val-shortage' : ''}`}>
+                {need?.has_shortage
+                  ? formatAmount(need.shortage, need.unit)
+                  : runningLow
+                    ? <span className="val-running-low">{remainPct}% left after</span>
+                    : '—'}
+              </span>
+              <span className="item-last-price col-price">
+                {item.last_purchase_price != null
+                  ? <>{item.last_purchase_price.toFixed(2)} <span className="price-amount">({item.last_purchase_amount})</span></>
+                  : '—'}
+              </span>
+              <span className="item-staff">{item.logged_by ?? '—'}</span>
+              <span className="item-time col-time">{formatDateTime(item.logged_at)}</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

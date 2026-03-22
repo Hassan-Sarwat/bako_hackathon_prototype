@@ -241,6 +241,15 @@ def init_db() -> None:
             weather_code INTEGER,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS inventory_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            material_id INTEGER NOT NULL,
+            snapshot_date TEXT NOT NULL,
+            count REAL NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE,
+            UNIQUE(material_id, snapshot_date)
+        );
     """)
 
     # Seed sanitation checklist if empty
@@ -379,8 +388,8 @@ def mark_item_incomplete(item_id: int, staff_id: str | None = None) -> dict:
     return {"status": "error", "message": f"Item {item_id} not found"}
 
 
-def update_material_count(item_name: str, count: int, staff_id: str | None = None) -> dict:
-    """Update the count of a material. Creates it if it doesn't exist. Requires staff_id."""
+def adjust_material_count(item_name: str, delta: int, staff_id: str | None = None) -> dict:
+    """Adjust the count of a material by a relative amount. Creates it if it doesn't exist. Requires staff_id."""
     if not staff_id:
         return {"status": "error", "message": "Cannot update material without a staff member identified. Please scan your NFC card first."}
 
@@ -389,12 +398,15 @@ def update_material_count(item_name: str, count: int, staff_id: str | None = Non
     now = datetime.now().isoformat()
     cursor.execute(
         "INSERT INTO materials (item_name, count, updated_at, updated_by) VALUES (?, ?, ?, ?) "
-        "ON CONFLICT(item_name) DO UPDATE SET count = ?, updated_at = ?, updated_by = ?",
-        (item_name, count, now, staff_id, count, now, staff_id),
+        "ON CONFLICT(item_name) DO UPDATE SET count = count + ?, updated_at = ?, updated_by = ?",
+        (item_name, delta, now, staff_id, delta, now, staff_id),
     )
+    # Fetch the new count to return it
+    cursor.execute("SELECT count FROM materials WHERE item_name = ?", (item_name,))
+    new_count = cursor.fetchone()["count"]
     conn.commit()
     conn.close()
-    return {"status": "success", "item_name": item_name, "count": count, "updated_by": staff_id}
+    return {"status": "success", "item_name": item_name, "delta": delta, "new_count": new_count, "updated_by": staff_id}
 
 
 def get_materials() -> list[dict]:
@@ -1390,6 +1402,12 @@ def delete_cooking_plan(plan_id: int) -> dict:
 def get_material_usage_analysis(start_date: str, end_date: str) -> list[dict]:
     """Analyse expected material usage from cooking plans vs purchases.
 
+    Uses inventory snapshots to obtain the starting and ending inventory for
+    the requested period so that the numbers are internally consistent:
+
+        expected_remaining = start_inventory + purchased − expected_usage
+        unaccounted_loss   = expected_remaining − end_inventory
+
     Returns a list of materials sorted by estimated loss value (descending).
     """
     conn = get_connection()
@@ -1404,8 +1422,7 @@ def get_material_usage_analysis(start_date: str, end_date: str) -> list[dict]:
         "WHERE cp.plan_date BETWEEN ? AND ? AND pm.amount_value IS NOT NULL",
         (start_date, end_date),
     )
-    # Accumulate expected usage per (material_id, base_unit)
-    usage: dict[int, dict] = {}  # material_id -> {name, value, unit}
+    usage: dict[int, dict] = {}
     for row in cursor.fetchall():
         mid = row["material_id"]
         val = row["amount_value"] * row["quantity"]
@@ -1421,7 +1438,7 @@ def get_material_usage_analysis(start_date: str, end_date: str) -> list[dict]:
         "WHERE purchase_date BETWEEN ? AND ? AND amount_value IS NOT NULL",
         (start_date, end_date),
     )
-    purchases: dict[int, dict] = {}  # material_id -> {total_amount, total_price}
+    purchases: dict[int, dict] = {}
     for row in cursor.fetchall():
         mid = row["material_id"]
         if mid not in purchases:
@@ -1429,46 +1446,64 @@ def get_material_usage_analysis(start_date: str, end_date: str) -> list[dict]:
         purchases[mid]["total_amount"] += row["amount_value"] * row["quantity"]
         purchases[mid]["total_price"] += row["price"]
 
-    # 3. Current inventory (in base units — same unit as usage/purchases)
-    cursor.execute("SELECT id, count FROM materials")
-    stock = {row["id"]: row["count"] for row in cursor.fetchall()}
+    # 3. Starting inventory — latest snapshot on or before the day before
+    #    start_date (i.e. the inventory at the beginning of the period).
+    cursor.execute(
+        "SELECT material_id, count FROM inventory_snapshots "
+        "WHERE snapshot_date = ("
+        "  SELECT MAX(snapshot_date) FROM inventory_snapshots s2 "
+        "  WHERE s2.material_id = inventory_snapshots.material_id "
+        "    AND s2.snapshot_date < ?"
+        ")",
+        (start_date,),
+    )
+    start_stock = {row["material_id"]: row["count"] for row in cursor.fetchall()}
+
+    # 4. Ending inventory — snapshot on end_date (or latest before it).
+    cursor.execute(
+        "SELECT material_id, count FROM inventory_snapshots "
+        "WHERE snapshot_date = ("
+        "  SELECT MAX(snapshot_date) FROM inventory_snapshots s2 "
+        "  WHERE s2.material_id = inventory_snapshots.material_id "
+        "    AND s2.snapshot_date <= ?"
+        ")",
+        (end_date,),
+    )
+    end_stock = {row["material_id"]: row["count"] for row in cursor.fetchall()}
 
     conn.close()
 
-    # 4. Build result for every material where purchased >= expected_usage.
-    #    Skip materials where usage exceeds purchases (bad data).
+    # 5. Build results
     results: list[dict] = []
     for mid, u in usage.items():
         expected = u["value"]
         p = purchases.get(mid, {"total_amount": 0.0, "total_price": 0.0, "unit": ""})
         purchased = p["total_amount"]
 
-        # Skip if units are incompatible between usage and purchase
         if purchased > 0 and p["unit"] and u["unit"] and p["unit"] != u["unit"]:
             continue
 
-        # Skip if expected usage exceeds purchases (impossible scenario)
-        if purchased < expected:
-            continue
-
-        # Unit price from purchases (cost per base unit)
         unit_price = p["total_price"] / purchased if purchased > 0 else 0.0
 
-        current = stock.get(mid, 0)
-        expected_remaining = purchased - expected
-        unaccounted_loss = expected_remaining - current  # positive = missing
-        loss_pct = (unaccounted_loss / purchased * 100) if purchased > 0 else 0.0
-        flagged = unaccounted_loss > 0 and abs(loss_pct) > 20
-        estimated_loss_value = max(0.0, unaccounted_loss) * unit_price
+        inv_start = start_stock.get(mid, 0.0)
+        inv_end = end_stock.get(mid, 0.0)
+        expected_remaining = inv_start + purchased - expected
+        unaccounted_loss = max(0.0, expected_remaining - inv_end)
+
+        total_available = inv_start + purchased
+        loss_pct = (unaccounted_loss / total_available * 100) if total_available > 0 else 0.0
+        flagged = unaccounted_loss > 0 and loss_pct > 20
+        estimated_loss_value = unaccounted_loss * unit_price
 
         results.append({
             "material_id": mid,
             "material_name": u["name"],
             "unit": u["unit"],
-            "expected_usage": round(expected, 2),
+            "start_inventory": round(inv_start, 2),
             "total_purchased": round(purchased, 2),
-            "current_stock": round(current, 2),
+            "expected_usage": round(expected, 2),
             "expected_remaining": round(expected_remaining, 2),
+            "current_stock": round(inv_end, 2),
             "unaccounted_loss": round(unaccounted_loss, 2),
             "loss_pct": round(loss_pct, 1),
             "flagged": flagged,
@@ -1476,7 +1511,6 @@ def get_material_usage_analysis(start_date: str, end_date: str) -> list[dict]:
             "estimated_loss_value": round(estimated_loss_value, 2),
         })
 
-    # Sort by estimated loss value descending
     results.sort(key=lambda r: r["estimated_loss_value"], reverse=True)
     return results
 

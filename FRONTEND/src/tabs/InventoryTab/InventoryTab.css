@@ -46,7 +46,7 @@
 .inventory-header,
 .inventory-row {
   display: grid;
-  grid-template-columns: 2fr 70px 80px 140px 100px 80px;
+  grid-template-columns: 2fr 80px 80px 80px 80px 140px 100px 80px;
   align-items: center;
   padding: 12px 20px;
   gap: 12px;
@@ -71,14 +71,30 @@
   background: var(--accent-bg);
 }
 
+.inventory-row--shortage {
+  background: var(--bk-stock-critical-bg, #fde8e8);
+  border-left: 3px solid var(--bk-stock-critical, #c0392b);
+}
+
+.inventory-row--running-low {
+  background: var(--bk-stock-low-bg, #fef9e7);
+  border-left: 3px solid var(--bk-stock-low, #f39c12);
+}
+
+.val-running-low {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bk-stock-low, #f39c12);
+}
+
 .item-name {
   font-weight: 500;
   color: var(--text-h);
 }
 
 .item-count {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -97,6 +113,18 @@
 .item-status.stock-ok       { background: var(--bk-stock-ok-bg); }
 .item-status.stock-low      { background: var(--bk-stock-low-bg); }
 .item-status.stock-critical { background: var(--bk-stock-critical-bg); }
+
+.item-needed {
+  font-size: 13px;
+  color: var(--text);
+  text-align: center;
+}
+
+.item-shortage {
+  font-size: 13px;
+  text-align: center;
+  color: var(--text);
+}
 
 .item-staff {
   color: var(--text);
@@ -203,7 +231,7 @@
 @media (max-width: 1024px) {
   .inventory-header,
   .inventory-row {
-    grid-template-columns: 2fr 60px 70px 120px 80px;
+    grid-template-columns: 2fr 70px 70px 70px 70px 120px 80px;
   }
   .col-time {
     display: none;
@@ -213,9 +241,10 @@
 @media (max-width: 640px) {
   .inventory-header,
   .inventory-row {
-    grid-template-columns: 1fr 60px 70px;
+    grid-template-columns: 1fr 60px 70px 60px 60px;
     padding: 10px 14px;
   }
   .item-staff { display: none; }
   .col-price { display: none; }
+  .col-time { display: none; }
 }

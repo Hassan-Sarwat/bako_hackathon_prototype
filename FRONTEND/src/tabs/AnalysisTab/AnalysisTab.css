@@ -119,10 +119,11 @@
 .analysis-header,
 .analysis-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 80px 100px 70px;
+  grid-template-columns: 1.8fr 1fr 1fr 1fr 1fr 1fr 80px 80px 70px;
   align-items: center;
-  padding: 12px 20px;
-  gap: 12px;
+  padding: 12px 16px;
+  gap: 8px;
+  font-size: 13px;
 }
 
 .analysis-header {
@@ -338,19 +339,23 @@
 }
 
 /* Responsive */
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .analysis-header,
   .analysis-row {
-    grid-template-columns: 1.5fr 1fr 1fr 80px;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr 80px;
     padding: 10px 14px;
-    font-size: 13px;
+    font-size: 12px;
   }
 
-  /* Hide discrepancy, stock on small screens */
-  .analysis-header span:nth-child(4),
-  .analysis-row span:nth-child(4),
-  .analysis-header span:nth-child(7),
-  .analysis-row span:nth-child(7) {
+  /* Hide start inv, purchased, expected remaining, loss% on small screens */
+  .analysis-header span:nth-child(2),
+  .analysis-row span:nth-child(2),
+  .analysis-header span:nth-child(3),
+  .analysis-row span:nth-child(3),
+  .analysis-header span:nth-child(5),
+  .analysis-row span:nth-child(5),
+  .analysis-header span:nth-child(8),
+  .analysis-row span:nth-child(8) {
     display: none;
   }
 

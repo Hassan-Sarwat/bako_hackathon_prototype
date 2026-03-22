@@ -95,12 +95,14 @@ export default function MaterialUsagePanel() {
 
           <MaterialWasteChart data={data} />
 
-          <div className="analysis-grid">
+          <div className="analysis-grid analysis-grid--wide">
             <div className="analysis-header">
               <span>Material</span>
+              <span>Start Inv.</span>
               <span>Purchased</span>
               <span>Expected Usage</span>
-              <span>Inventory</span>
+              <span>Expected Rem.</span>
+              <span>Actual Inv.</span>
               <span>Unaccounted</span>
               <span>Loss %</span>
               <span>Est. Loss (€)</span>
@@ -119,8 +121,10 @@ export default function MaterialUsagePanel() {
                     <span className="expand-icon">{expandedId === m.material_id ? '▾' : '▸'}</span>
                     {m.material_name}
                   </span>
+                  <span>{formatAmount(m.start_inventory, m.unit)}</span>
                   <span>{formatAmount(m.total_purchased, m.unit)}</span>
                   <span>{formatAmount(m.expected_usage, m.unit)}</span>
+                  <span>{formatAmount(m.expected_remaining, m.unit)}</span>
                   <span>{formatAmount(m.current_stock, m.unit)}</span>
                   <span className={m.unaccounted_loss > 0 ? 'val-negative' : 'val-positive'}>
                     {formatAmount(m.unaccounted_loss, m.unit)}

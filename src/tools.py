@@ -55,10 +55,17 @@ get_remaining_items_decl = types.FunctionDeclaration(
     ),
 )
 
-# Tool: Materialbestand aktualisieren
-update_material_count_decl = types.FunctionDeclaration(
-    name="update_material_count",
-    description="Den aktuellen Bestand eines Materials aktualisieren. Erstellt das Material, falls es noch nicht existiert.",
+# Tool: Materialbestand anpassen (relativ)
+adjust_material_count_decl = types.FunctionDeclaration(
+    name="adjust_material_count",
+    description=(
+        "Den Bestand eines Materials relativ anpassen — hinzufügen oder entfernen. "
+        "Verwende einen positiven Wert, um Bestand hinzuzufügen (z.B. Lieferung erhalten), "
+        "und einen negativen Wert, um Bestand zu entfernen (z.B. verbraucht oder entsorgt). "
+        "Beispiel: 'Wir haben 10 kg Salz bekommen' → delta=10. "
+        "'Wir haben 3 Packungen Butter verbraucht' → delta=-3. "
+        "Erstellt das Material mit dem angegebenen delta als Anfangsbestand, falls es noch nicht existiert."
+    ),
     parameters=types.Schema(
         type="OBJECT",
         properties={
@@ -66,12 +73,12 @@ update_material_count_decl = types.FunctionDeclaration(
                 type="STRING",
                 description="Der Name des Materials",
             ),
-            "count": types.Schema(
+            "delta": types.Schema(
                 type="INTEGER",
-                description="Die aktuelle Anzahl oder Menge des Materials",
+                description="Die Änderung der Menge: positiv zum Hinzufügen, negativ zum Entfernen",
             ),
         },
-        required=["item_name", "count"],
+        required=["item_name", "delta"],
     ),
 )
 
@@ -292,7 +299,7 @@ all_tools = types.Tool(
         mark_item_complete_decl,
         mark_item_incomplete_decl,
         get_remaining_items_decl,
-        update_material_count_decl,
+        adjust_material_count_decl,
         get_materials_decl,
         get_stale_materials_decl,
         get_cleaning_tasks_decl,

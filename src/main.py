@@ -54,7 +54,8 @@ class CompleteItemRequest(BaseModel):
 
 class UpdateMaterialRequest(BaseModel):
     item_name: str
-    count: int
+    count: int | None = None
+    delta: int | None = None
 
 
 class RaiseTicketRequest(BaseModel):
@@ -238,12 +239,15 @@ async def get_materials():
 
 
 @app.put("/api/materials")
-async def update_material_count(
+async def adjust_material_count(
     body: UpdateMaterialRequest,
     x_staff_id: str | None = Header(None),
 ):
-    """Update the count of a material."""
-    result = db.update_material_count(body.item_name, body.count, staff_id=x_staff_id)
+    """Adjust the count of a material by a relative delta."""
+    delta = body.delta if body.delta is not None else body.count
+    if delta is None:
+        raise HTTPException(status_code=400, detail="Either 'delta' or 'count' must be provided.")
+    result = db.adjust_material_count(body.item_name, delta, staff_id=x_staff_id)
     if result.get("status") == "error":
         raise HTTPException(status_code=400, detail=result["message"])
     return result

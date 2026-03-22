@@ -134,35 +134,37 @@ section("MATERIALS")
 materials = db.get_materials()
 ok("8 materials seeded", len(materials) == 8, f"got {len(materials)}")
 
-# Update a material count
-res = db.update_material_count("Weizenmehl", 25, staff_id=STAFF)
-ok("update flour count", res["status"] == "success", str(res))
-ok("count recorded", res["count"] == 25)
+# Adjust a material count (relative delta)
+# First get the current flour count
+flour_before = [m for m in materials if m["item_name"] == "Weizenmehl"][0]["count"]
+res = db.adjust_material_count("Weizenmehl", 25, staff_id=STAFF)
+ok("adjust flour count", res["status"] == "success", str(res))
+ok("new_count recorded", res["new_count"] == flour_before + 25)
 ok("updated_by recorded", res["updated_by"] == STAFF)
 
-res = db.update_material_count("Zucker", 10, staff_id=STAFF)
-ok("update sugar count", res["status"] == "success")
+res = db.adjust_material_count("Zucker", 10, staff_id=STAFF)
+ok("adjust sugar count", res["status"] == "success")
 
-# Update same item again (upsert — should overwrite, not append)
-res = db.update_material_count("Weizenmehl", 24, staff_id=STAFF)
-ok("second flour update", res["status"] == "success")
+# Adjust same item again (should add to current, not overwrite)
+res = db.adjust_material_count("Weizenmehl", -1, staff_id=STAFF)
+ok("second flour adjust", res["status"] == "success")
 
-# Verify via raw SQL that Weizenmehl has count=24 (upserted, not duplicated)
+# Verify via raw SQL that Weizenmehl has count = original + 25 - 1
 conn = db.get_connection()
 cur = conn.cursor()
 cur.execute("SELECT count FROM materials WHERE item_name = 'Weizenmehl'")
 count = cur.fetchone()[0]
 conn.close()
-ok("flour count is 24 (upserted)", count == 24, f"got {count}")
+ok("flour count is original+24 (adjusted)", count == flour_before + 24, f"got {count}")
 
 # Create a new material that wasn't seeded
-res = db.update_material_count("Sahne", 5, staff_id=STAFF)
+res = db.adjust_material_count("Sahne", 5, staff_id=STAFF)
 ok("new material created", res["status"] == "success")
 materials = db.get_materials()
 ok("9 materials after adding new one", len(materials) == 9, f"got {len(materials)}")
 
 # Reject without staff_id
-res = db.update_material_count("Butter", 5, staff_id=None)
+res = db.adjust_material_count("Butter", 5, staff_id=None)
 ok("material rejected without staff_id", res["status"] == "error")
 
 # Stale materials — all seeded items that weren't updated should be stale

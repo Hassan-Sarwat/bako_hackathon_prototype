@@ -111,7 +111,7 @@ export default function CookingPlanTab() {
       )}
 
       <div className="cooking-grid">
-        <div className="cooking-header">
+        <div className="cooking-header" style={hasPredictions ? { gridTemplateColumns: '2fr 100px 140px 120px' } : undefined}>
           <span>Product</span>
           <span>Quantity</span>
           {hasPredictions && <span>Recommended</span>}
