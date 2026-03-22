@@ -31,6 +31,12 @@ fi
 npm run dev &
 FRONTEND_PID=$!
 echo "  Frontend →  http://localhost:5173  (pid $FRONTEND_PID)"
+
+# Start tablet app
+cd "$ROOT/src/app"
+uv run uvicorn main:app --port 8080 --reload
+
+echo "  Tablet App →  http://localhost:8080  (pid $TABLET_PID)"
 echo
 echo "Press Ctrl+C to stop both servers."
 echo
