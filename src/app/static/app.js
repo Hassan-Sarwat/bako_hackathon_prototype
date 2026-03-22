@@ -3,13 +3,15 @@ let audioContext;
 let processor;
 let mediaStream;
 let isRecording = false;
+let geminiSpeaking = false;
+let geminiSpeakingTimer = null;
 
 const talkButton = document.getElementById('talkButton');
 const statusText = document.getElementById('statusText');
 const micIcon = document.getElementById('micIcon');
 const transcript = document.getElementById('transcript');
 
-const SAMPLE_RATE = 16000; 
+const SAMPLE_RATE = 16000;
 let nextPlayTime = 0;
 
 talkButton.addEventListener('click', async () => {
@@ -26,7 +28,7 @@ async function startCommunication() {
         ws.binaryType = 'arraybuffer';
         
         ws.onopen = async () => {
-            statusText.textContent = "Connecting to Audio...";
+            statusText.textContent = "Verbinde...";
             talkButton.classList.add('pulsate');
             micIcon.classList.add('scale-110');
             isRecording = true;
@@ -56,8 +58,8 @@ async function startCommunication() {
             processor = audioContext.createScriptProcessor(4096, 1, 1);
             
             processor.onaudioprocess = (e) => {
-                if (!isRecording || ws.readyState !== WebSocket.OPEN) return;
-                
+                if (!isRecording || ws.readyState !== WebSocket.OPEN || geminiSpeaking) return;
+
                 const inputData = e.inputBuffer.getChannelData(0);
                 const pcmData = new Int16Array(inputData.length);
                 for (let i = 0; i < inputData.length; i++) {
@@ -70,12 +72,12 @@ async function startCommunication() {
             source.connect(processor);
             processor.connect(audioContext.destination);
             
-            statusText.textContent = "Listening...";
+            statusText.textContent = "Zuhören...";
         };
         
         ws.onclose = () => {
             stopCommunication();
-            statusText.textContent = "Disconnected.";
+            statusText.textContent = "Verbindung getrennt.";
         };
 
         ws.onmessage = async (event) => {
@@ -94,16 +96,18 @@ async function startCommunication() {
 
     } catch (e) {
         console.error("Error setting up audio/ws: ", e);
-        statusText.textContent = "Hardware error check console.";
+        statusText.textContent = "Hardwarefehler – Konsole prüfen.";
         stopCommunication();
     }
 }
 
 function stopCommunication() {
     isRecording = false;
+    geminiSpeaking = false;
+    if (geminiSpeakingTimer) { clearTimeout(geminiSpeakingTimer); geminiSpeakingTimer = null; }
     talkButton.classList.remove('pulsate');
     micIcon.classList.remove('scale-110');
-    statusText.textContent = "Click to connect";
+    statusText.textContent = "Zum Starten klicken";
     
     if (processor) {
         processor.disconnect();
@@ -146,6 +150,18 @@ async function playAudioChunk(arrayBuffer) {
 
         source.start(nextPlayTime);
         nextPlayTime += buffer.duration;
+
+        // Mute microphone while Gemini is speaking to prevent echo confusing the VAD.
+        // Re-enable 400ms after the last scheduled chunk finishes playing.
+        geminiSpeaking = true;
+        statusText.textContent = "Spricht...";
+        if (geminiSpeakingTimer) clearTimeout(geminiSpeakingTimer);
+        const msUntilDone = Math.max(0, (nextPlayTime - audioContext.currentTime) * 1000) + 400;
+        geminiSpeakingTimer = setTimeout(() => {
+            geminiSpeaking = false;
+            geminiSpeakingTimer = null;
+            if (isRecording) statusText.textContent = "Zuhören...";
+        }, msUntilDone);
     } catch (e) {
         console.error("Error playing audio: ", e);
     }

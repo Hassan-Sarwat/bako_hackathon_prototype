@@ -44,6 +44,25 @@ def read_root():
     with open(STATIC_DIR / "index.html") as f:
         return HTMLResponse(f.read())
 
+def _action_summary(fn_name: str, fn_args: dict) -> str | None:
+    """Return a concise human-readable summary for mutating tool calls, or None for read-only ones."""
+    if fn_name == "update_material_count":
+        return f"{fn_args.get('item_name', 'Material')} auf {fn_args.get('count', '?')} aktualisiert."
+    if fn_name == "raise_ticket":
+        urgency_map = {"urgent": "dringend", "high": "hoch", "normal": "normal", "low": "niedrig"}
+        urgency = urgency_map.get(fn_args.get("urgency", ""), fn_args.get("urgency", ""))
+        return f"Ticket gemeldet: {fn_args.get('title', 'Problem')} ({urgency})."
+    if fn_name == "mark_item_complete":
+        return "Hygiene-Aufgabe abgehakt."
+    if fn_name == "mark_item_incomplete":
+        return "Hygiene-Aufgabe wieder geöffnet."
+    if fn_name == "mark_cleaning_complete":
+        return "Reinigungsaufgabe abgehakt."
+    if fn_name == "mark_cleaning_incomplete":
+        return "Reinigungsaufgabe wieder geöffnet."
+    return None  # read-only tools — Gemini speaks the result, no transcript update needed
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -87,33 +106,58 @@ async def websocket_endpoint(websocket: WebSocket):
             
             async def receive_from_gemini():
                 try:
-                    # Async iterator for messages sent by the Live API
-                    async for msg in session.receive():
-                        server_content = getattr(msg, "server_content", None)
-                        if server_content is not None:
-                            model_turn = getattr(server_content, "model_turn", None)
-                            if model_turn is not None:
-                                for part in getattr(model_turn, "parts", []):
-                                    inline_data = getattr(part, "inline_data", None)
-                                    # Forward inline data to client
-                                    if inline_data and getattr(inline_data, "data", None):
-                                        await websocket.send_bytes(inline_data.data)
-                                    # You can also handle text here if text is passed instead
-                                    elif getattr(part, "text", None):
-                                        await websocket.send_text(json.dumps({"text": part.text}))
-                        
-                        # Handle tool calls
-                        tool_call = getattr(msg, "tool_call", None)
-                        if tool_call is not None:
-                            for fc in getattr(tool_call, "function_calls", []):
-                                fn_name = fc.name
-                                fn_args = dict(fc.args) if fc.args else {}
-                                
-                                print(f"  [Tool Call] {fn_name}({json.dumps(fn_args, ensure_ascii=False)})")
-                                
-                                if fn_name == "end_session":
-                                    print("User said goodbye — shutting down session.")
-                                    result = {"status": "success", "message": "Sitzung wird beendet. Tschüss!"}
+                    while True:
+                        # Re-subscribe after each completed turn for continuous listening
+                        async for msg in session.receive():
+                            server_content = getattr(msg, "server_content", None)
+                            if server_content is not None:
+                                model_turn = getattr(server_content, "model_turn", None)
+                                if model_turn is not None:
+                                    for part in getattr(model_turn, "parts", []):
+                                        inline_data = getattr(part, "inline_data", None)
+                                        # Forward audio to client; skip raw text (model reasoning)
+                                        if inline_data and getattr(inline_data, "data", None):
+                                            await websocket.send_bytes(inline_data.data)
+
+                            # Handle tool calls
+                            tool_call = getattr(msg, "tool_call", None)
+                            if tool_call is not None:
+                                for fc in getattr(tool_call, "function_calls", []):
+                                    fn_name = fc.name
+                                    fn_args = dict(fc.args) if fc.args else {}
+
+                                    print(f"  [Tool Call] {fn_name}({json.dumps(fn_args, ensure_ascii=False)})")
+
+                                    if fn_name == "end_session":
+                                        print("User said goodbye — shutting down session.")
+                                        result = {"status": "success", "message": "Sitzung wird beendet. Tschüss!"}
+                                        await session.send_tool_response(
+                                            function_responses=[
+                                                genai.types.FunctionResponse(
+                                                    id=fc.id,
+                                                    name=fn_name,
+                                                    response=result,
+                                                )
+                                            ]
+                                        )
+                                        # Graceful close (wait a bit to ensure it gets sent)
+                                        await asyncio.sleep(2)
+                                        await websocket.close()
+                                        return
+
+                                    result = await handle_tool_call(
+                                        function_name=fn_name,
+                                        args=fn_args,
+                                        staff_id=staff_id,
+                                    )
+                                    print(f"  [Tool Result] {json.dumps(result, ensure_ascii=False)}")
+
+                                    # Show concise action summary on the frontend
+                                    summary = _action_summary(fn_name, fn_args)
+                                    if summary:
+                                        await websocket.send_text(json.dumps({"text": summary}))
+
+                                    # Send result back to Gemini
                                     await session.send_tool_response(
                                         function_responses=[
                                             genai.types.FunctionResponse(
@@ -123,28 +167,6 @@ async def websocket_endpoint(websocket: WebSocket):
                                             )
                                         ]
                                     )
-                                    # Graceful close (wait a bit to ensure it gets sent)
-                                    await asyncio.sleep(2)
-                                    await websocket.close()
-                                    return
-                                    
-                                result = await handle_tool_call(
-                                    function_name=fn_name,
-                                    args=fn_args,
-                                    staff_id=staff_id,
-                                )
-                                print(f"  [Tool Result] {json.dumps(result, ensure_ascii=False)}")
-                                
-                                # Send result back to Gemini
-                                await session.send_tool_response(
-                                    function_responses=[
-                                        genai.types.FunctionResponse(
-                                            id=fc.id,
-                                            name=fn_name,
-                                            response=result,
-                                        )
-                                    ]
-                                )
                 except Exception as e:
                     print(f"Error receiving from gemini: {e}")
             
