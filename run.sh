@@ -7,6 +7,13 @@ echo "============================================="
 echo "  Bako Bakery — starting backend + frontend"
 echo "============================================="
 
+# Seed database and train prediction model
+echo "  Seeding database…"
+uv run python src/test/seed_fake_data.py --reset
+echo "  Training prediction model…"
+uv run python -m src.prediction_model
+echo
+
 # Start backend
 uv run -m src &
 BACKEND_PID=$!
