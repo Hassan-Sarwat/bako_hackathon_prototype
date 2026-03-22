@@ -54,7 +54,7 @@
 .purchases-header,
 .purchases-row {
   display: grid;
-  grid-template-columns: 2fr 100px 80px 100px 120px;
+  grid-template-columns: 2fr 50px 90px 90px 90px 100px 120px;
   align-items: center;
   padding: 12px 20px;
   gap: 12px;
@@ -120,6 +120,8 @@
 
 .item-name { font-weight: 500; color: var(--text-h); }
 .item-price { font-weight: 600; color: var(--text-h); }
+.item-qty { font-weight: 600; color: var(--text); }
+.item-ppu { font-size: 13px; color: var(--text); }
 
 .row-actions {
   display: flex;
@@ -140,13 +142,26 @@
 .btn-edit:hover { background: var(--accent-bg); }
 .btn-delete:hover { background: var(--bk-stock-critical-bg, #fde8e8); }
 
+@media (max-width: 900px) {
+  .purchases-header,
+  .purchases-row {
+    grid-template-columns: 2fr 50px 90px 90px 90px 100px;
+    padding: 10px 14px;
+  }
+  .purchases-header span:nth-child(7),
+  .purchases-row span:nth-child(7) { display: none; }
+}
+
 @media (max-width: 640px) {
   .purchases-header,
   .purchases-row {
-    grid-template-columns: 1fr 80px 70px;
+    grid-template-columns: 1fr 50px 80px 70px;
     padding: 10px 14px;
   }
-  .purchases-header span:nth-child(4),
-  .purchases-row span:nth-child(4),
-  .row-actions { display: none; }
+  .purchases-header span:nth-child(5),
+  .purchases-row span:nth-child(5),
+  .purchases-header span:nth-child(6),
+  .purchases-row span:nth-child(6),
+  .purchases-header span:nth-child(7),
+  .purchases-row span:nth-child(7) { display: none; }
 }
