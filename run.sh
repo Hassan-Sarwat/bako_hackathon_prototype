@@ -34,7 +34,8 @@ echo "  Frontend →  http://localhost:5173  (pid $FRONTEND_PID)"
 
 # Start tablet app
 cd "$ROOT/src/app"
-uv run uvicorn main:app --port 8080 --reload
+uv run uvicorn main:app --port 8080 --reload &
+TABLET_PID=$!
 
 echo "  Tablet App →  http://localhost:8080  (pid $TABLET_PID)"
 echo
