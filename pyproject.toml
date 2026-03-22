@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Bakery voice checklist assistant using Gemini Live API"
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi>=0.115.0",
+    "fastapi[standard]>=0.115.0",
     "google-genai>=1.0.0",
     "numpy>=1.26.0",
     "pandas>=2.2.0",
