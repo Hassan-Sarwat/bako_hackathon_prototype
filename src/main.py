@@ -143,7 +143,7 @@ async def get_checklist_items(checklist_type: str):
 @app.get("/api/checklist/{checklist_type}/remaining")
 async def get_remaining_items(checklist_type: str):
     """Get all incomplete items for a checklist type."""
-    items = db.get_incomplete_items(checklist_type)
+    items = db.get_checklist_items(checklist_type, only_incomplete=True)
     return {"items": items}
 
 
@@ -605,6 +605,20 @@ async def get_material_drilldown(material_id: int, start_date: str, end_date: st
     """Get per-day cooking plan breakdown for a specific material."""
     entries = db.get_material_drilldown(material_id, start_date, end_date)
     return {"entries": entries}
+
+
+@app.get("/api/analysis/daily-loss-trend")
+async def get_daily_loss_trend(start_date: str, end_date: str):
+    """Return day-by-day expected vs actual material cost in euros."""
+    trend = db.get_daily_loss_trend(start_date, end_date)
+    return {"trend": trend}
+
+
+@app.get("/api/analysis/loss-comparison")
+async def get_loss_comparison(start_date: str, end_date: str):
+    """Compare total loss for current period vs previous period of equal length."""
+    comparison = db.get_loss_comparison(start_date, end_date)
+    return comparison
 
 
 @app.get("/api/analysis/product-loss")

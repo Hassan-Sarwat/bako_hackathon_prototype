@@ -54,7 +54,7 @@
 .purchases-header,
 .purchases-row {
   display: grid;
-  grid-template-columns: 2fr 50px 90px 90px 90px 100px 120px;
+  grid-template-columns: 2fr 50px 90px 90px 90px 100px 170px;
   align-items: center;
   padding: 12px 20px;
   gap: 12px;

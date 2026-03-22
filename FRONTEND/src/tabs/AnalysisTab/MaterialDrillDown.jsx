@@ -17,7 +17,7 @@ export default function MaterialDrillDown({ entries, unit }) {
   }, [entries])
 
   if (entries.length === 0) {
-    return <div className="drilldown-empty">No cooking plans found for this material in the selected range.</div>
+    return <div className="drilldown-empty">Keine Backpläne für dieses Material im gewählten Zeitraum.</div>
   }
 
   return (
@@ -28,14 +28,14 @@ export default function MaterialDrillDown({ entries, unit }) {
           <div key={date} className="drilldown-day">
             <div className="drilldown-day-header">
               <span className="drilldown-date">{date}</span>
-              <span className="drilldown-day-total">Total: {formatAmount(dayTotal, unit)}</span>
+              <span className="drilldown-day-total">Gesamt: {formatAmount(dayTotal, unit)}</span>
             </div>
             <div className="drilldown-table">
               <div className="drilldown-table-header">
-                <span>Product</span>
-                <span>Qty</span>
-                <span>Per Unit</span>
-                <span>Total Used</span>
+                <span>Produkt</span>
+                <span>Anz.</span>
+                <span>Pro Stück</span>
+                <span>Gesamtverbrauch</span>
               </div>
               {items.map((e, i) => (
                 <div key={i} className="drilldown-table-row">

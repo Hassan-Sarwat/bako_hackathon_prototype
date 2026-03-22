@@ -103,28 +103,28 @@ export default function ProductsTab() {
     setRecipeMats(recipeMats.filter((_, i) => i !== idx))
   }
 
-  if (loading) return <div className="tab-status">Loading products...</div>
+  if (loading) return <div className="tab-status">Produkte werden geladen...</div>
   if (error) return <div className="tab-status tab-status--error">Error: {error}</div>
 
   return (
     <div className="products-tab">
       <div className="products-toolbar">
-        <span><strong>{products.length}</strong> products</span>
-        <button className="btn-add" onClick={() => { resetForm(); setShowForm(true) }}>+ Add Product</button>
+        <span><strong>{products.length}</strong> Produkte</span>
+        <button className="btn-add" onClick={() => { resetForm(); setShowForm(true) }}>+ Produkt hinzufügen</button>
       </div>
 
       {showForm && (
         <form className="product-form" onSubmit={handleSubmit}>
           <div className="product-form-row">
-            <input placeholder="Product name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
-            <input type="number" step="0.01" placeholder="Price" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} required />
+            <input placeholder="Produktname" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
+            <input type="number" step="0.01" placeholder="Preis" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} required />
           </div>
-          <textarea placeholder="Recipe / steps (optional)" value={form.recipe} onChange={e => setForm({ ...form, recipe: e.target.value })} rows={3} />
+          <textarea placeholder="Rezept / Schritte (optional)" value={form.recipe} onChange={e => setForm({ ...form, recipe: e.target.value })} rows={3} />
 
           <div className="mat-section">
             <div className="mat-section-header">
-              <strong>Materials</strong>
-              <button type="button" className="btn-add-sm" onClick={addMatRow}>+ Material</button>
+              <strong>Zutaten</strong>
+              <button type="button" className="btn-add-sm" onClick={addMatRow}>+ Zutat</button>
             </div>
             {recipeMats.map((m, idx) => (
               <div key={idx} className="mat-row">
@@ -133,27 +133,27 @@ export default function ProductsTab() {
                     <option key={mat.id} value={mat.id}>{mat.item_name}</option>
                   ))}
                 </select>
-                <input placeholder="Amount (e.g. 20kg)" value={m.amount} onChange={e => updateMatRow(idx, 'amount', e.target.value)} required />
+                <input placeholder="Menge (z.B. 20kg)" value={m.amount} onChange={e => updateMatRow(idx, 'amount', e.target.value)} required />
                 <button type="button" className="btn-delete-sm" onClick={() => removeMatRow(idx)}>x</button>
               </div>
             ))}
           </div>
 
           <div className="form-actions">
-            <button type="submit" className="btn-save">{editId ? 'Update' : 'Save'}</button>
-            <button type="button" className="btn-cancel" onClick={resetForm}>Cancel</button>
+            <button type="submit" className="btn-save">{editId ? 'Aktualisieren' : 'Speichern'}</button>
+            <button type="button" className="btn-cancel" onClick={resetForm}>Abbrechen</button>
           </div>
         </form>
       )}
 
       <div className="products-grid">
         <div className="products-header">
-          <span>Product</span>
-          <span>Price</span>
-          <span>Actions</span>
+          <span>Produkt</span>
+          <span>Preis</span>
+          <span>Aktionen</span>
         </div>
         {products.length === 0 && (
-          <div className="products-empty">No products yet</div>
+          <div className="products-empty">Noch keine Produkte</div>
         )}
         {products.map(p => (
           <div key={p.id}>
@@ -161,22 +161,22 @@ export default function ProductsTab() {
               <span className="item-name">{p.name}</span>
               <span className="item-price">{p.price.toFixed(2)}</span>
               <span className="row-actions" onClick={e => e.stopPropagation()}>
-                <button className="btn-edit" onClick={() => startEdit(p)}>Edit</button>
-                <button className="btn-delete" onClick={() => handleDelete(p.id)}>Delete</button>
+                <button className="btn-edit" onClick={() => startEdit(p)}>Bearbeiten</button>
+                <button className="btn-delete" onClick={() => handleDelete(p.id)}>Löschen</button>
               </span>
             </div>
             {expandedId === p.id && expandedData && (
               <div className="product-details">
                 {expandedData.recipe && (
                   <div className="detail-section">
-                    <strong>Recipe:</strong>
+                    <strong>Rezept:</strong>
                     <p>{expandedData.recipe}</p>
                   </div>
                 )}
                 <div className="detail-section">
-                  <strong>Materials:</strong>
+                  <strong>Zutaten:</strong>
                   {expandedData.materials.length === 0
-                    ? <p className="no-materials">No materials assigned</p>
+                    ? <p className="no-materials">Keine Zutaten zugeordnet</p>
                     : (
                       <ul className="material-list">
                         {expandedData.materials.map(m => (

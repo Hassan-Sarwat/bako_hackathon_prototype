@@ -47,7 +47,7 @@ function App() {
           onClick={() => setActiveTab('dashboard')}
         >
           <h1>Bako Bakery</h1>
-          <span>Operations Dashboard</span>
+          <span>Betriebsübersicht</span>
         </button>
         <div className="dashboard-clock">
           {dateStr} &nbsp;·&nbsp; {timeStr}

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { fetchSchedules, createSchedule, updateSchedule, deleteSchedule } from '../../api'
 import './ScheduleTab.css'
 
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const HOUR_START = 4   // 04:00
 const HOUR_END = 22    // 22:00
 
@@ -220,10 +220,10 @@ export default function ScheduleTab() {
       {/* Toolbar */}
       <div className="cal-toolbar">
         <button className="cal-nav-btn" onClick={prevWeek}>&larr;</button>
-        <button className="cal-today-btn" onClick={goToday}>Today</button>
+        <button className="cal-today-btn" onClick={goToday}>Heute</button>
         <button className="cal-nav-btn" onClick={nextWeek}>&rarr;</button>
         <span className="cal-week-label">{formatWeekRange(weekDays)}</span>
-        <button className="btn-add" onClick={() => openFormForDate(todayStr)}>+ Add Shift</button>
+        <button className="btn-add" onClick={() => openFormForDate(todayStr)}>+ Schicht hinzufügen</button>
       </div>
 
       {/* Add/Edit Form */}
@@ -231,7 +231,7 @@ export default function ScheduleTab() {
         <form className="schedule-form" onSubmit={handleSubmit}>
           <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} required />
           <input
-            placeholder="Employee name"
+            placeholder="Mitarbeitername"
             value={form.employee_name}
             onChange={e => setForm({ ...form, employee_name: e.target.value })}
             required
@@ -244,16 +244,16 @@ export default function ScheduleTab() {
               checked={form.cleaning === 1}
               onChange={e => setForm({ ...form, cleaning: e.target.checked ? 1 : 0 })}
             />
-            Cleaning
+            Reinigung
           </label>
-          <button type="submit" className="btn-save">{editId ? 'Update' : 'Save'}</button>
-          <button type="button" className="btn-cancel" onClick={resetForm}>Cancel</button>
+          <button type="submit" className="btn-save">{editId ? 'Aktualisieren' : 'Speichern'}</button>
+          <button type="button" className="btn-cancel" onClick={resetForm}>Abbrechen</button>
         </form>
       )}
 
       {/* Calendar grid */}
       <div className="cal-container">
-        {loading && <div className="cal-loading">Loading...</div>}
+        {loading && <div className="cal-loading">Laden...</div>}
         <div className="cal-grid" style={{ gridTemplateColumns: '50px repeat(7, 1fr)' }}>
           {/* Header row */}
           <div className="cal-corner" />
@@ -326,7 +326,7 @@ export default function ScheduleTab() {
                         backgroundColor: bg,
                       }}
                       onClick={e => { e.stopPropagation(); startEdit(item) }}
-                      title={`${item.employee_name}\n${item.start_time} – ${item.end_time}${item.cleaning ? '\nCleaning duty' : ''}`}
+                      title={`${item.employee_name}\n${item.start_time} – ${item.end_time}${item.cleaning ? '\nReinigungsdienst' : ''}`}
                     >
                       <span className="cal-event-name">{item.employee_name}</span>
                       <span className="cal-event-time">{item.start_time}–{item.end_time}</span>
@@ -334,7 +334,7 @@ export default function ScheduleTab() {
                       <button
                         className="cal-event-delete"
                         onClick={e => { e.stopPropagation(); handleDelete(item.id) }}
-                        title="Delete"
+                        title="Löschen"
                       >&times;</button>
                     </div>
                   )

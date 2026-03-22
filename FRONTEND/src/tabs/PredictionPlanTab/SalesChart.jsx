@@ -71,7 +71,7 @@ export default function SalesChart({ history, predictions }) {
   }, [history, predictions])
 
   if (allDates.length === 0) {
-    return <div className="chart-empty">No data available</div>
+    return <div className="chart-empty">Keine Daten verfügbar</div>
   }
 
   // Y-axis ticks
@@ -167,9 +167,9 @@ export default function SalesChart({ history, predictions }) {
 
         {/* Legend */}
         <rect x={PAD.left + 4} y={6} width={10} height={10} rx={2} fill={COLORS.actual} />
-        <text x={PAD.left + 18} y={15} fontSize="11" fill={COLORS.textH}>Actual Sales</text>
-        <rect x={PAD.left + 110} y={6} width={10} height={10} rx={2} fill={COLORS.predicted} />
-        <text x={PAD.left + 124} y={15} fontSize="11" fill={COLORS.textH}>Predicted</text>
+        <text x={PAD.left + 18} y={15} fontSize="11" fill={COLORS.textH}>Tatsächliche Verkäufe</text>
+        <rect x={PAD.left + 150} y={6} width={10} height={10} rx={2} fill={COLORS.predicted} />
+        <text x={PAD.left + 164} y={15} fontSize="11" fill={COLORS.textH}>Prognose</text>
       </svg>
     </div>
   )

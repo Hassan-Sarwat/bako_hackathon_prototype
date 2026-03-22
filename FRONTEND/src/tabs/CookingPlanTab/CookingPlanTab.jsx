@@ -70,7 +70,7 @@ export default function CookingPlanTab() {
     }
   }
 
-  if (loading) return <div className="tab-status">Loading cooking plan...</div>
+  if (loading) return <div className="tab-status">Backplan wird geladen...</div>
   if (error) return <div className="tab-status tab-status--error">Error: {error}</div>
 
   const totalBaked = items.reduce((sum, i) => sum + i.quantity, 0)
@@ -80,9 +80,9 @@ export default function CookingPlanTab() {
     <div className="cooking-plan-tab">
       <div className="cooking-toolbar">
         <input type="date" value={date} onChange={e => setDate(e.target.value)} className="cooking-date-input" />
-        <span><strong>{items.length}</strong> products planned</span>
-        <span>Total items: <strong>{totalBaked}</strong></span>
-        <button className="btn-add" onClick={() => { resetForm(); setShowForm(true) }}>+ Add Entry</button>
+        <span><strong>{items.length}</strong> Produkte geplant</span>
+        <span>Gesamtmenge: <strong>{totalBaked}</strong></span>
+        <button className="btn-add" onClick={() => { resetForm(); setShowForm(true) }}>+ Eintrag hinzufügen</button>
       </div>
 
       {showForm && (
@@ -92,39 +92,39 @@ export default function CookingPlanTab() {
             onChange={e => setForm({ ...form, product_id: e.target.value })}
             required
           >
-            <option value="">Select product</option>
+            <option value="">Produkt auswählen</option>
             {products.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
           <input
             type="number"
-            placeholder="Quantity"
+            placeholder="Menge"
             value={form.quantity}
             onChange={e => setForm({ ...form, quantity: e.target.value })}
             required
             min="1"
           />
-          <button type="submit" className="btn-save">{editId ? 'Update' : 'Save'}</button>
-          <button type="button" className="btn-cancel" onClick={resetForm}>Cancel</button>
+          <button type="submit" className="btn-save">{editId ? 'Aktualisieren' : 'Speichern'}</button>
+          <button type="button" className="btn-cancel" onClick={resetForm}>Abbrechen</button>
         </form>
       )}
 
       <div className="cooking-grid">
-        <div className="cooking-header" style={hasPredictions ? { gridTemplateColumns: '2fr 100px 140px 120px' } : undefined}>
-          <span>Product</span>
-          <span>Quantity</span>
-          {hasPredictions && <span>Recommended</span>}
-          <span>Actions</span>
+        <div className="cooking-header" style={hasPredictions ? { gridTemplateColumns: '2fr 100px 140px 170px' } : undefined}>
+          <span>Produkt</span>
+          <span>Menge</span>
+          {hasPredictions && <span>Empfohlen</span>}
+          <span>Aktionen</span>
         </div>
         {items.length === 0 && (
-          <div className="cooking-empty">No cooking plan for this date</div>
+          <div className="cooking-empty">Kein Backplan für dieses Datum</div>
         )}
         {items.map(item => {
           const pred = predictions[item.product_id]
           const diff = pred ? item.quantity - pred.recommended_production : null
           return (
-            <div key={item.id} className="cooking-row" style={hasPredictions ? { gridTemplateColumns: '2fr 100px 140px 120px' } : undefined}>
+            <div key={item.id} className="cooking-row" style={hasPredictions ? { gridTemplateColumns: '2fr 100px 140px 170px' } : undefined}>
               <span className="item-name">{item.product_name}</span>
               <span className="item-quantity">{item.quantity}</span>
               {hasPredictions && (
@@ -142,8 +142,8 @@ export default function CookingPlanTab() {
                 </span>
               )}
               <span className="row-actions">
-                <button className="btn-edit" onClick={() => startEdit(item)}>Edit</button>
-                <button className="btn-delete" onClick={() => handleDelete(item.id)}>Delete</button>
+                <button className="btn-edit" onClick={() => startEdit(item)}>Bearbeiten</button>
+                <button className="btn-delete" onClick={() => handleDelete(item.id)}>Löschen</button>
               </span>
             </div>
           )

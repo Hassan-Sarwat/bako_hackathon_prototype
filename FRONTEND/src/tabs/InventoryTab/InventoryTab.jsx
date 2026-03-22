@@ -25,8 +25,8 @@ function stockClass(count, unit) {
 
 function stockLabel(count, unit) {
   const cls = stockClass(count, unit)
-  if (cls === 'stock-critical') return 'Critical'
-  if (cls === 'stock-low') return 'Low'
+  if (cls === 'stock-critical') return 'Kritisch'
+  if (cls === 'stock-low') return 'Niedrig'
   return 'OK'
 }
 
@@ -56,7 +56,7 @@ export default function InventoryTab() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="tab-status">Loading inventory...</div>
+  if (loading) return <div className="tab-status">Lager wird geladen...</div>
   if (error)   return <div className="tab-status tab-status--error">Error: {error}</div>
 
   const criticalCount = items.filter(i => stockClass(i.count, i.unit) === 'stock-critical').length
@@ -104,28 +104,28 @@ export default function InventoryTab() {
   return (
     <div className="inventory-tab">
       <div className="inventory-summary">
-        <span><strong>{items.length}</strong> ingredients tracked</span>
+        <span><strong>{items.length}</strong> Zutaten erfasst</span>
         {criticalCount > 0 && (
-          <span className="summary-critical">{criticalCount} critical</span>
+          <span className="summary-critical">{criticalCount} kritisch</span>
         )}
         {lowCount > 0 && (
-          <span className="summary-low">{lowCount} low</span>
+          <span className="summary-low">{lowCount} niedrig</span>
         )}
         {shortages.length > 0 && (
-          <span className="summary-shortage">{shortages.length} shortage{shortages.length > 1 ? 's' : ''} (3-day forecast)</span>
+          <span className="summary-shortage">{shortages.length} {shortages.length > 1 ? 'Engpässe' : 'Engpass'} (3-Tage-Prognose)</span>
         )}
       </div>
 
       <div className="inventory-grid">
         <div className="inventory-header">
-          <span>Ingredient</span>
-          <span>Stock</span>
+          <span>Zutat</span>
+          <span>Bestand</span>
           <span>Status</span>
-          <span>Needed</span>
-          <span>Shortage</span>
-          <span className="col-price">Last Price</span>
-          <span>Logged by</span>
-          <span className="col-time">Date / Time</span>
+          <span>Bedarf</span>
+          <span>Engpass</span>
+          <span className="col-price">Letzter Preis</span>
+          <span>Erfasst von</span>
+          <span className="col-time">Datum / Uhrzeit</span>
         </div>
         {sortedItems.map(item => {
           const need = needsByName[item.item_name]
@@ -149,7 +149,7 @@ export default function InventoryTab() {
                 {need?.has_shortage
                   ? formatAmount(need.shortage, need.unit)
                   : runningLow
-                    ? <span className="val-running-low">{remainPct}% left after</span>
+                    ? <span className="val-running-low">{remainPct}% übrig nach</span>
                     : '—'}
               </span>
               <span className="item-last-price col-price">

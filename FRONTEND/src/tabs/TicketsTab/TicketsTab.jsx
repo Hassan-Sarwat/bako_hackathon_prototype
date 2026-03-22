@@ -60,7 +60,7 @@ export default function TicketsTab() {
     }, 1100)
   }
 
-  if (loading) return <div className="tab-status">Loading tickets…</div>
+  if (loading) return <div className="tab-status">Tickets werden geladen…</div>
   if (error)   return <div className="tab-status tab-status--error">Error: {error}</div>
 
   const unresolvedTickets  = tickets.filter(t => !inProgress.has(t.id))
@@ -74,9 +74,9 @@ export default function TicketsTab() {
     <div className="tickets-tab">
       {/* Summary row */}
       <div className="tickets-summary">
-        <span><strong>{tickets.length}</strong> open tickets</span>
-        {urgentCount > 0 && <span className="summary-urgent">{urgentCount} urgent</span>}
-        {highCount   > 0 && <span className="summary-high">{highCount} high</span>}
+        <span><strong>{tickets.length}</strong> offene Tickets</span>
+        {urgentCount > 0 && <span className="summary-urgent">{urgentCount} dringend</span>}
+        {highCount   > 0 && <span className="summary-high">{highCount} hoch</span>}
       </div>
 
       {/* Sub-tab bar */}
@@ -87,7 +87,7 @@ export default function TicketsTab() {
           className={`tickets-subtab ${activeTab === 'unresolved' ? 'tickets-subtab--active' : ''}`}
           onClick={() => setActiveTab('unresolved')}
         >
-          Unresolved
+          Offen
           {unresolvedTickets.length > 0 && (
             <span className="tickets-subtab-count">{unresolvedTickets.length}</span>
           )}
@@ -98,7 +98,7 @@ export default function TicketsTab() {
           className={`tickets-subtab ${activeTab === 'inprogress' ? 'tickets-subtab--active' : ''}`}
           onClick={() => setActiveTab('inprogress')}
         >
-          In Progress
+          In Bearbeitung
           {inProgressTickets.length > 0 && (
             <span className="tickets-subtab-count tickets-subtab-count--progress">{inProgressTickets.length}</span>
           )}
@@ -108,7 +108,7 @@ export default function TicketsTab() {
       {/* Ticket grid */}
       {visibleTickets.length === 0 ? (
         <div className="tickets-empty">
-          {activeTab === 'unresolved' ? 'No unresolved tickets.' : 'No tickets in progress.'}
+          {activeTab === 'unresolved' ? 'Keine offenen Tickets.' : 'Keine Tickets in Bearbeitung.'}
         </div>
       ) : (
         <div className="tickets-grid">

@@ -27,15 +27,15 @@ export default function TicketCard({ ticket, isInProgress, isResolving, onToggle
 
         <div className="ticket-card-actions">
           {isInProgress && (
-            <span className="ticket-progress-dot" aria-label="In progress" />
+            <span className="ticket-progress-dot" aria-label="In Bearbeitung" />
           )}
 
           {/* Start / Stop toggle */}
           <button
             className={`ticket-action-btn ticket-action-btn--progress ${isInProgress ? 'ticket-action-btn--stop' : ''}`}
             onClick={() => onToggleProgress(ticket.id)}
-            aria-label={isInProgress ? 'Stop progress' : 'Start progress'}
-            title={isInProgress ? 'Stop' : 'Start'}
+            aria-label={isInProgress ? 'Fortschritt stoppen' : 'Fortschritt starten'}
+            title={isInProgress ? 'Stopp' : 'Start'}
             disabled={isResolving}
           >
             {isInProgress ? '■' : '▶'}
@@ -45,8 +45,8 @@ export default function TicketCard({ ticket, isInProgress, isResolving, onToggle
           <button
             className={`ticket-resolve-btn ${isResolving ? 'ticket-resolve-btn--checked' : ''}`}
             onClick={() => !isResolving && onResolve(ticket.id)}
-            aria-label="Mark as resolved"
-            title="Mark as resolved"
+            aria-label="Als erledigt markieren"
+            title="Als erledigt markieren"
             disabled={isResolving}
           >
             {isResolving ? (
@@ -63,7 +63,7 @@ export default function TicketCard({ ticket, isInProgress, isResolving, onToggle
       </div>
 
       {isResolving && (
-        <div className="ticket-resolved-banner">Resolved</div>
+        <div className="ticket-resolved-banner">Erledigt</div>
       )}
 
       <h3 className="ticket-title">{ticket.title}</h3>

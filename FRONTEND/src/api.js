@@ -215,6 +215,16 @@ export function fetchMaterialDrilldown(materialId, { start_date, end_date }) {
   return apiFetch(`/api/analysis/material-drilldown/${materialId}?${q}`).then(d => d.entries)
 }
 
+export function fetchDailyLossTrend({ start_date, end_date }) {
+  const q = new URLSearchParams({ start_date, end_date })
+  return apiFetch(`/api/analysis/daily-loss-trend?${q}`).then(d => d.trend)
+}
+
+export function fetchLossComparison({ start_date, end_date }) {
+  const q = new URLSearchParams({ start_date, end_date })
+  return apiFetch(`/api/analysis/loss-comparison?${q}`)
+}
+
 export function fetchProductLossAnalysis({ start_date, end_date }) {
   const q = new URLSearchParams({ start_date, end_date })
   return apiFetch(`/api/analysis/product-loss?${q}`).then(d => d.products)

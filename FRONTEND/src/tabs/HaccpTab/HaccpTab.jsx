@@ -43,9 +43,9 @@ export default function HaccpTab() {
     <div className="haccp-tab">
       <div className="haccp-overview">
         <div className="haccp-overview-text">
-          <h2 className="haccp-overview-title">HACCP Compliance</h2>
+          <h2 className="haccp-overview-title">HACCP-Kontrolle</h2>
           <p className="haccp-overview-sub">
-            Hazard Analysis &amp; Critical Control Points — {totalDone}/{totalItems} checks complete
+            Hazard Analysis &amp; Critical Control Points — {totalDone}/{totalItems} Prüfungen abgeschlossen
           </p>
         </div>
         <span className={`haccp-pct-badge ${pct === 100 ? 'haccp-pct-badge--complete' : ''}`}>
@@ -62,7 +62,7 @@ export default function HaccpTab() {
           className={`section-filter-btn ${activeFilter === 'all' ? 'section-filter-btn--active' : ''}`}
           onClick={() => setActiveFilter('all')}
         >
-          All
+          Alle
         </button>
         {categories.map(cat => (
           <button

@@ -1,11 +1,11 @@
 import './CategoryTag.css'
 
 const LABELS = {
-  machine_breakdown: 'Machine Breakdown',
-  no_show: 'No-Show',
-  stock_shortage: 'Stock Shortage',
-  safety: 'Safety',
-  other: 'Other',
+  machine_breakdown: 'Maschinenausfall',
+  no_show: 'Nicht erschienen',
+  stock_shortage: 'Materialmangel',
+  safety: 'Sicherheit',
+  other: 'Sonstiges',
 }
 
 export default function CategoryTag({ category }) {

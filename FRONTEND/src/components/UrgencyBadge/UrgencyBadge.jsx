@@ -1,10 +1,10 @@
 import './UrgencyBadge.css'
 
 const LABELS = {
-  urgent: 'Urgent',
-  high: 'High',
+  urgent: 'Dringend',
+  high: 'Hoch',
   normal: 'Normal',
-  low: 'Low',
+  low: 'Niedrig',
 }
 
 export default function UrgencyBadge({ urgency }) {

@@ -6,7 +6,7 @@ function formatAmount(value, unit) {
 
 export default function ProductLossDrillDown({ entries }) {
   if (entries.length === 0) {
-    return <div className="drilldown-empty">No material loss data found for this product in the selected range.</div>
+    return <div className="drilldown-empty">Keine Verlustdaten für dieses Produkt im gewählten Zeitraum.</div>
   }
 
   return (
@@ -14,10 +14,10 @@ export default function ProductLossDrillDown({ entries }) {
       <div className="drilldown-table">
         <div className="drilldown-table-header">
           <span>Material</span>
-          <span>Expected Usage</span>
-          <span>Share (%)</span>
-          <span>Attributed Loss (qty)</span>
-          <span>Attributed Loss (€)</span>
+          <span>Erwarteter Verbrauch</span>
+          <span>Anteil (%)</span>
+          <span>Zugeordneter Verlust (Menge)</span>
+          <span>Zugeordneter Verlust (€)</span>
         </div>
         {entries.map(e => (
           <div key={e.material_id} className="drilldown-table-row">

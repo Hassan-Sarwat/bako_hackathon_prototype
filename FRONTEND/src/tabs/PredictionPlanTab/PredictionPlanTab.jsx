@@ -51,39 +51,39 @@ export default function PredictionPlanTab() {
     <div className="prediction-plan-tab">
       <div className="prediction-toolbar">
         <label>
-          Date
+          Datum
           <input type="date" value={date} onChange={e => setDate(e.target.value)} />
         </label>
-        <button className="btn-refresh" onClick={() => load(date)}>Refresh</button>
+        <button className="btn-refresh" onClick={() => load(date)}>Aktualisieren</button>
       </div>
 
-      {loading && <div className="tab-status">Loading predictions...</div>}
+      {loading && <div className="tab-status">Prognosen werden geladen...</div>}
       {error && <div className="tab-status tab-status--error">Error: {error}</div>}
 
       {!loading && !error && plan.length > 0 && (
         <>
           <div className="prediction-summary">
             <div className="summary-card">
-              <span className="summary-label">Products</span>
+              <span className="summary-label">Produkte</span>
               <span className="summary-value">{plan.length}</span>
             </div>
             <div className="summary-card">
-              <span className="summary-label">Total Production</span>
+              <span className="summary-label">Gesamtproduktion</span>
               <span className="summary-value">{totalProduction}</span>
             </div>
             <div className="summary-card">
-              <span className="summary-label">Est. Revenue</span>
+              <span className="summary-label">Gesch. Umsatz</span>
               <span className="summary-value summary-value--positive">{totalRevenue.toFixed(2)} &euro;</span>
             </div>
           </div>
 
           <div className="prediction-grid">
             <div className="prediction-header">
-              <span>Product</span>
-              <span>Predicted Sales</span>
-              <span>Recommended</span>
-              <span>Price</span>
-              <span>Est. Revenue</span>
+              <span>Produkt</span>
+              <span>Progn. Verkauf</span>
+              <span>Empfohlen</span>
+              <span>Preis</span>
+              <span>Gesch. Umsatz</span>
             </div>
 
             {plan.map(p => (
@@ -113,17 +113,17 @@ export default function PredictionPlanTab() {
                 {expandedId === p.product_id && (
                   <div className="chart-panel">
                     {chartLoading ? (
-                      <div className="chart-loading">Loading chart...</div>
+                      <div className="chart-loading">Diagramm wird geladen...</div>
                     ) : chartData ? (
                       <div className="chart-wrapper">
-                        <h4 className="chart-title">{chartData.product?.name} — Sales History &amp; Forecast</h4>
+                        <h4 className="chart-title">{chartData.product?.name} — Verkaufsverlauf &amp; Prognose</h4>
                         <SalesChart
                           history={chartData.history}
                           predictions={chartData.predictions}
                         />
                       </div>
                     ) : (
-                      <div className="chart-empty">No data available</div>
+                      <div className="chart-empty">Keine Daten verfügbar</div>
                     )}
                   </div>
                 )}
@@ -135,7 +135,7 @@ export default function PredictionPlanTab() {
 
       {!loading && !error && plan.length === 0 && (
         <div className="prediction-empty">
-          No predictions available for {date}. Run the prediction model to generate forecasts.
+          Keine Prognosen verfügbar für {date}. Führen Sie das Prognosemodell aus, um Prognosen zu erstellen.
         </div>
       )}
     </div>

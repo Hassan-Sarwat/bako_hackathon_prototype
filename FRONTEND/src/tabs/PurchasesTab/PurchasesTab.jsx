@@ -86,7 +86,7 @@ export default function PurchasesTab() {
     }
   }
 
-  if (loading) return <div className="tab-status">Loading purchases...</div>
+  if (loading) return <div className="tab-status">Einkäufe werden geladen...</div>
   if (error) return <div className="tab-status tab-status--error">Error: {error}</div>
 
   const totalSpent = items.reduce((sum, i) => sum + i.price, 0)
@@ -99,14 +99,14 @@ export default function PurchasesTab() {
           onChange={e => setFilterMaterial(e.target.value)}
           className="filter-select"
         >
-          <option value="">All materials</option>
+          <option value="">Alle Materialien</option>
           {materials.map(m => (
             <option key={m.id} value={m.id}>{m.item_name}</option>
           ))}
         </select>
-        <span><strong>{items.length}</strong> purchases</span>
-        <span>Total: <strong>{totalSpent.toFixed(2)}</strong></span>
-        <button className="btn-add" onClick={() => { resetForm(); setShowForm(true) }}>+ Add Purchase</button>
+        <span><strong>{items.length}</strong> Einkäufe</span>
+        <span>Gesamt: <strong>{totalSpent.toFixed(2)}</strong></span>
+        <button className="btn-add" onClick={() => { resetForm(); setShowForm(true) }}>+ Einkauf hinzufügen</button>
       </div>
 
       {showForm && (
@@ -116,32 +116,32 @@ export default function PurchasesTab() {
             onChange={e => setForm({ ...form, material_id: e.target.value })}
             required
           >
-            <option value="">Select material</option>
+            <option value="">Material auswählen</option>
             {materials.map(m => (
               <option key={m.id} value={m.id}>{m.item_name}</option>
             ))}
           </select>
-          <input placeholder="Size (e.g. 25kg)" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required />
-          <input type="number" min="1" placeholder="Qty" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} required />
-          <input type="number" step="0.01" placeholder="Total Price" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} required />
+          <input placeholder="Größe (z.B. 25kg)" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required />
+          <input type="number" min="1" placeholder="Anz." value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} required />
+          <input type="number" step="0.01" placeholder="Gesamtpreis" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} required />
           <input type="date" value={form.purchase_date} onChange={e => setForm({ ...form, purchase_date: e.target.value })} required />
-          <button type="submit" className="btn-save">{editId ? 'Update' : 'Save'}</button>
-          <button type="button" className="btn-cancel" onClick={resetForm}>Cancel</button>
+          <button type="submit" className="btn-save">{editId ? 'Aktualisieren' : 'Speichern'}</button>
+          <button type="button" className="btn-cancel" onClick={resetForm}>Abbrechen</button>
         </form>
       )}
 
       <div className="purchases-grid">
         <div className="purchases-header">
           <span>Material</span>
-          <span>Qty</span>
-          <span>Size</span>
-          <span>Total Price</span>
-          <span>Price/Unit</span>
-          <span>Date</span>
-          <span>Actions</span>
+          <span>Anz.</span>
+          <span>Größe</span>
+          <span>Gesamtpreis</span>
+          <span>Preis/Einheit</span>
+          <span>Datum</span>
+          <span>Aktionen</span>
         </div>
         {items.length === 0 && (
-          <div className="purchases-empty">No purchases found</div>
+          <div className="purchases-empty">Keine Einkäufe gefunden</div>
         )}
         {items.map(item => (
           <div key={item.id} className="purchases-row">
@@ -152,8 +152,8 @@ export default function PurchasesTab() {
             <span className="item-ppu">{pricePerUnit(item.price, item.quantity, item.amount_value, item.amount_unit)}</span>
             <span>{item.purchase_date}</span>
             <span className="row-actions">
-              <button className="btn-edit" onClick={() => startEdit(item)}>Edit</button>
-              <button className="btn-delete" onClick={() => handleDelete(item.id)}>Delete</button>
+              <button className="btn-edit" onClick={() => startEdit(item)}>Bearbeiten</button>
+              <button className="btn-delete" onClick={() => handleDelete(item.id)}>Löschen</button>
             </span>
           </div>
         ))}

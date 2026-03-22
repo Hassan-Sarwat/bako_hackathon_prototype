@@ -46,13 +46,13 @@ export default function CleaningTab() {
     })
   }
 
-  if (loading) return <div className="tab-status">Loading cleaning tasks…</div>
+  if (loading) return <div className="tab-status">Reinigungsaufgaben werden geladen…</div>
   if (error)   return <div className="tab-status tab-status--error">Error: {error}</div>
 
   // Derive sections dynamically from available data
   const sections = [
-    { id: 'sanitation', label: 'Sanitation Checklist', items: sanitation, toggleFn: toggleSanitation, areaLabel: false },
-    { id: 'cleaning',   label: 'Daily Cleaning Tasks',  items: cleaning,   toggleFn: toggleCleaning,  areaLabel: true  },
+    { id: 'sanitation', label: 'Hygiene-Checkliste', items: sanitation, toggleFn: toggleSanitation, areaLabel: false },
+    { id: 'cleaning',   label: 'Tägliche Reinigung',  items: cleaning,   toggleFn: toggleCleaning,  areaLabel: true  },
   ].filter(s => s.items.length > 0)
 
   const sanitationDone = sanitation.filter(i => i.is_complete).length
@@ -67,7 +67,7 @@ export default function CleaningTab() {
   return (
     <div className="cleaning-tab">
       <div className="cleaning-overall">
-        <ProgressBar completed={totalDone} total={totalAll} label="Overall Progress" />
+        <ProgressBar completed={totalDone} total={totalAll} label="Gesamtfortschritt" />
       </div>
 
       <div className="section-filter-bar" role="tablist" aria-label="Filter sections">
@@ -77,7 +77,7 @@ export default function CleaningTab() {
           className={`section-filter-btn ${activeFilter === 'all' ? 'section-filter-btn--active' : ''}`}
           onClick={() => setActiveFilter('all')}
         >
-          All
+          Alle
         </button>
         {sections.map(s => (
           <button

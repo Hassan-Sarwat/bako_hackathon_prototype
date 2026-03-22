@@ -331,15 +331,15 @@ def get_all_checklist_items(checklist_type: str) -> list[dict]:
     return items
 
 
-def get_incomplete_items(checklist_type: str) -> list[dict]:
-    """Get all incomplete items for a checklist type."""
+def get_checklist_items(checklist_type: str, only_incomplete: bool = True) -> list[dict]:
+    """Get checklist items, optionally filtering to only incomplete ones."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, item_name FROM checklist_items WHERE checklist_type = ? AND is_complete = 0",
-        (checklist_type,),
-    )
-    items = [{"id": row["id"], "name": row["item_name"]} for row in cursor.fetchall()]
+    query = "SELECT id, item_name, is_complete FROM checklist_items WHERE checklist_type = ?"
+    if only_incomplete:
+        query += " AND is_complete = 0"
+    cursor.execute(query, (checklist_type,))
+    items = [{"id": row["id"], "name": row["item_name"], "done": bool(row["is_complete"])} for row in cursor.fetchall()]
     conn.close()
     return items
 
@@ -1513,6 +1513,170 @@ def get_material_usage_analysis(start_date: str, end_date: str) -> list[dict]:
 
     results.sort(key=lambda r: r["estimated_loss_value"], reverse=True)
     return results
+
+
+def get_daily_loss_trend(start_date: str, end_date: str) -> list[dict]:
+    """Return day-by-day expected vs actual material cost in euros.
+
+    For each day in [start_date, end_date]:
+      expected_cost = Σ (cooking_plan expected usage × unit_price)
+      actual_cost   = Σ (consumption × unit_price)
+        where consumption = snapshot[day-1] + purchases[day] - snapshot[day]
+    """
+    from datetime import datetime, timedelta
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    day_before_start = (start_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    # 1. Unit prices from purchases across the full period
+    cursor.execute(
+        "SELECT material_id, "
+        "  SUM(amount_value * COALESCE(quantity, 1)) AS total_amount, "
+        "  SUM(price) AS total_price "
+        "FROM raw_purchases "
+        "WHERE purchase_date BETWEEN ? AND ? AND amount_value IS NOT NULL "
+        "GROUP BY material_id",
+        (start_date, end_date),
+    )
+    unit_prices: dict[int, float] = {}
+    for row in cursor.fetchall():
+        if row["total_amount"] > 0:
+            unit_prices[row["material_id"]] = row["total_price"] / row["total_amount"]
+
+    # 2. Daily expected usage from cooking_plans × product_materials
+    cursor.execute(
+        "SELECT cp.plan_date, pm.material_id, "
+        "  SUM(pm.amount_value * cp.quantity) AS expected_usage "
+        "FROM cooking_plans cp "
+        "JOIN product_materials pm ON cp.product_id = pm.product_id "
+        "WHERE cp.plan_date BETWEEN ? AND ? AND pm.amount_value IS NOT NULL "
+        "GROUP BY cp.plan_date, pm.material_id",
+        (start_date, end_date),
+    )
+    # {date: {material_id: expected_usage}}
+    daily_expected: dict[str, dict[int, float]] = {}
+    for row in cursor.fetchall():
+        d = row["plan_date"]
+        if d not in daily_expected:
+            daily_expected[d] = {}
+        daily_expected[d][row["material_id"]] = row["expected_usage"]
+
+    # 3. All inventory snapshots in [day_before_start, end_date]
+    cursor.execute(
+        "SELECT material_id, snapshot_date, count "
+        "FROM inventory_snapshots "
+        "WHERE snapshot_date BETWEEN ? AND ? "
+        "ORDER BY snapshot_date",
+        (day_before_start, end_date),
+    )
+    # {date: {material_id: count}}
+    snapshots: dict[str, dict[int, float]] = {}
+    for row in cursor.fetchall():
+        d = row["snapshot_date"]
+        if d not in snapshots:
+            snapshots[d] = {}
+        snapshots[d][row["material_id"]] = row["count"]
+
+    # 4. Daily purchases per material
+    cursor.execute(
+        "SELECT purchase_date, material_id, "
+        "  SUM(amount_value * COALESCE(quantity, 1)) AS total_amount "
+        "FROM raw_purchases "
+        "WHERE purchase_date BETWEEN ? AND ? AND amount_value IS NOT NULL "
+        "GROUP BY purchase_date, material_id",
+        (start_date, end_date),
+    )
+    # {date: {material_id: purchased_amount}}
+    daily_purchases: dict[str, dict[int, float]] = {}
+    for row in cursor.fetchall():
+        d = row["purchase_date"]
+        if d not in daily_purchases:
+            daily_purchases[d] = {}
+        daily_purchases[d][row["material_id"]] = row["total_amount"]
+
+    conn.close()
+
+    # 5. Iterate day by day, carry-forward snapshots for gaps
+    all_materials = set(unit_prices.keys())
+    last_known_snapshot: dict[int, float] = {}
+
+    # Initialize from day_before_start snapshot
+    if day_before_start in snapshots:
+        last_known_snapshot.update(snapshots[day_before_start])
+
+    results: list[dict] = []
+    current = start_dt
+    while current <= end_dt:
+        day_str = current.strftime("%Y-%m-%d")
+
+        # Update last_known_snapshot with today's snapshot if available
+        prev_snapshot = dict(last_known_snapshot)
+        if day_str in snapshots:
+            last_known_snapshot.update(snapshots[day_str])
+
+        day_expected_cost = 0.0
+        day_actual_cost = 0.0
+
+        for mid in all_materials:
+            price = unit_prices.get(mid, 0.0)
+            if price <= 0:
+                continue
+
+            # Expected cost for this day
+            exp_usage = daily_expected.get(day_str, {}).get(mid, 0.0)
+            day_expected_cost += exp_usage * price
+
+            # Actual consumption = prev_snapshot + purchases_today - today_snapshot
+            snap_prev = prev_snapshot.get(mid)
+            snap_today = snapshots.get(day_str, {}).get(mid)
+
+            if snap_prev is not None and snap_today is not None:
+                purchased_today = daily_purchases.get(day_str, {}).get(mid, 0.0)
+                consumption = snap_prev + purchased_today - snap_today
+                day_actual_cost += max(0.0, consumption) * price
+
+        results.append({
+            "date": day_str,
+            "expected_cost": round(day_expected_cost, 2),
+            "actual_cost": round(day_actual_cost, 2),
+        })
+        current += timedelta(days=1)
+
+    return results
+
+
+def get_loss_comparison(start_date: str, end_date: str) -> dict:
+    """Compare total loss for the current period vs the previous period of equal length."""
+    from datetime import datetime, timedelta
+
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    period_days = (end_dt - start_dt).days + 1
+
+    prev_end = start_dt - timedelta(days=1)
+    prev_start = prev_end - timedelta(days=period_days - 1)
+
+    current_data = get_material_usage_analysis(start_date, end_date)
+    current_total = sum(m["estimated_loss_value"] for m in current_data)
+
+    prev_data = get_material_usage_analysis(
+        prev_start.strftime("%Y-%m-%d"), prev_end.strftime("%Y-%m-%d")
+    )
+    previous_total = sum(m["estimated_loss_value"] for m in prev_data)
+
+    change_pct = None
+    if previous_total > 0:
+        change_pct = round((current_total - previous_total) / previous_total * 100, 1)
+
+    return {
+        "current_total_loss": round(current_total, 2),
+        "previous_total_loss": round(previous_total, 2),
+        "change_pct": change_pct,
+    }
 
 
 def get_material_drilldown(
