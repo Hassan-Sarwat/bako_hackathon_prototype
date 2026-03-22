@@ -6,16 +6,16 @@ let isRecording = false;
 let geminiSpeaking = false;
 let geminiSpeakingTimer = null;
 
-const talkButton   = document.getElementById('talkButton');
-const statusText   = document.getElementById('statusText');
-const micIconOn    = document.getElementById('micIconOn');
-const micIconOff   = document.getElementById('micIconOff');
-const buttonLabel  = document.getElementById('buttonLabel');
-const transcript   = document.getElementById('transcript');
-const glowEffect   = document.getElementById('glowEffect');
-const wave1        = document.getElementById('wave1');
-const wave2        = document.getElementById('wave2');
-const wave3        = document.getElementById('wave3');
+const talkButton = document.getElementById('talkButton');
+const statusText = document.getElementById('statusText');
+const micIconOn = document.getElementById('micIconOn');
+const micIconOff = document.getElementById('micIconOff');
+const buttonLabel = document.getElementById('buttonLabel');
+const transcript = document.getElementById('transcript');
+const glowEffect = document.getElementById('glowEffect');
+const wave1 = document.getElementById('wave1');
+const wave2 = document.getElementById('wave2');
+const wave3 = document.getElementById('wave3');
 
 const SAMPLE_RATE = 16000;
 let nextPlayTime = 0;
@@ -44,7 +44,7 @@ function setButtonActive(active) {
         talkButton.classList.remove('pulsate');
         micIconOn.classList.add('hidden');
         micIconOff.classList.remove('hidden');
-        buttonLabel.textContent = 'Cast';
+        buttonLabel.textContent = 'Start';
         glowEffect.classList.remove('scale-150', 'opacity-40');
         glowEffect.classList.add('scale-125', 'opacity-20');
     }
@@ -74,12 +74,14 @@ async function startCommunication() {
                 sampleRate: SAMPLE_RATE
             });
 
-            mediaStream = await navigator.mediaDevices.getUserMedia({ audio: {
-                channelCount: 1,
-                sampleRate: SAMPLE_RATE,
-                echoCancellation: true,
-                noiseSuppression: true
-            } });
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    channelCount: 1,
+                    sampleRate: SAMPLE_RATE,
+                    echoCancellation: true,
+                    noiseSuppression: true
+                }
+            });
 
             // Wait, if the websocket closed while we were getting user media,
             // stopCommunication() will have been called, making audioContext null.
@@ -126,7 +128,7 @@ async function startCommunication() {
                     if (msg.text) {
                         transcript.textContent = msg.text;
                     }
-                } catch(e) {}
+                } catch (e) { }
             }
         };
 
