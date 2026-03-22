@@ -665,7 +665,7 @@ DOW_PRODUCTION_MULT = {
     3: 1.0,   # Thursday
     4: 1.15,  # Friday
     5: 1.40,  # Saturday
-    6: 0.70,  # Sunday
+    6: 1.25,  # Sunday — also a strong weekend day
 }
 
 # Base sell-through rates (fraction of production that sells)
@@ -688,7 +688,7 @@ DOW_SALES_MULT = {
     3: 1.0,
     4: 1.05,  # Friday
     5: 1.10,  # Saturday
-    6: 0.95,  # Sunday
+    6: 1.08,  # Sunday — weekend foot traffic
 }
 
 # ---------------------------------------------------------------------------
