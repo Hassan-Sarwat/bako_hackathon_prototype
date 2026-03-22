@@ -451,64 +451,194 @@ BAKED_GOODS = [
     {
         "name": "Croissant",
         "price": 1.80,
-        "recipe": "Blätterteig herstellen: Mehl, Wasser, Salz, Hefe und Butter zu einem Teig verarbeiten. "
-                  "Mehrfach falten und kühlen. In Dreiecke schneiden, aufrollen. "
-                  "Bei 200°C ca. 15 Minuten goldbraun backen.",
+        "recipe": (
+            "Schritt 1: 500g Weizenmehl, 10g Salz, 30g Zucker und 20g frische Hefe in einer Schüssel mischen. "
+            "280ml kaltes Wasser hinzufügen und 5 Minuten auf niedriger Stufe zu einem glatten Teig kneten.\n"
+            "Schritt 2: Den Teig zu einem Rechteck formen, in Frischhaltefolie wickeln und mindestens 1 Stunde im Kühlschrank ruhen lassen.\n"
+            "Schritt 3: 250g kalte Butter zwischen zwei Lagen Backpapier zu einer gleichmäßigen Platte (ca. 15x15 cm) ausrollen.\n"
+            "Schritt 4: Den gekühlten Teig auf einer bemehlten Fläche zu einem Rechteck (ca. 30x20 cm) ausrollen. "
+            "Die Butterplatte auf die untere Hälfte legen und die obere Hälfte darüber klappen (einfache Tour).\n"
+            "Schritt 5: Erste Tour — den Teig zu einem langen Rechteck ausrollen und wie einen Brief in drei Lagen falten. "
+            "30 Minuten im Kühlschrank ruhen lassen.\n"
+            "Schritt 6: Zweite Tour — den Vorgang wiederholen: ausrollen, in drei Lagen falten, 30 Minuten kühlen.\n"
+            "Schritt 7: Dritte Tour — ein letztes Mal ausrollen und falten. Mindestens 1 Stunde oder über Nacht kühlen.\n"
+            "Schritt 8: Den Teig ca. 4mm dick ausrollen und in gleichschenklige Dreiecke schneiden (Basis ca. 10 cm). "
+            "Jeden Dreiecks-Basis leicht einschneiden und von der Basis zur Spitze straff aufrollen.\n"
+            "Schritt 9: Die geformten Croissants auf ein mit Backpapier belegtes Blech legen. "
+            "Mit 1 verquirltem Ei bestreichen. 60–90 Minuten bei Raumtemperatur gehen lassen, bis sie sich verdoppelt haben.\n"
+            "Schritt 10: Nochmals mit Ei bestreichen. Im vorgeheizten Ofen bei 200°C (Ober-/Unterhitze) "
+            "15–18 Minuten goldbraun backen. Die Croissants sind fertig, wenn sie eine gleichmäßig goldene Farbe haben "
+            "und sich beim Klopfen auf die Unterseite hohl anhören."
+        ),
         "materials": [("Weizenmehl", "500g"), ("Butter", "250g"), ("Hefe", "20g"), ("Zucker", "30g"), ("Salz", "10g"), ("Eier", "1 Stück")],
     },
     {
         "name": "Vollkornbrot",
         "price": 3.50,
-        "recipe": "Roggenmehl, Dinkelmehl, Hefe, Salz und Wasser vermengen. "
-                  "Teig 1 Stunde gehen lassen. In Kastenform geben. "
-                  "Bei 220°C 45 Minuten backen.",
+        "recipe": (
+            "Schritt 1: Vorteig ansetzen — 100g Roggenmehl mit 100ml lauwarmem Wasser und 5g Hefe verrühren. "
+            "Abgedeckt 30 Minuten bei Raumtemperatur gehen lassen, bis Blasen sichtbar sind.\n"
+            "Schritt 2: Die restlichen 300g Roggenmehl, 200g Dinkelmehl, 20g Hefe und 15g Salz in eine große Schüssel geben. "
+            "Den Vorteig und ca. 250ml lauwarmes Wasser hinzufügen.\n"
+            "Schritt 3: Alles 8–10 Minuten auf mittlerer Stufe kneten, bis ein geschmeidiger, leicht klebriger Teig entsteht. "
+            "Roggenteig wird nie so elastisch wie Weizenteig — das ist normal.\n"
+            "Schritt 4: 30g Leinsamen und 20g Kürbiskerne unter den Teig kneten, bis sie gleichmäßig verteilt sind.\n"
+            "Schritt 5: Den Teig abdecken und 1 Stunde bei Raumtemperatur gehen lassen, bis er sich um etwa die Hälfte vergrößert hat.\n"
+            "Schritt 6: Eine Kastenform (30 cm) einfetten. Den Teig nochmals kurz durchkneten, "
+            "zu einem Laib formen und in die Form legen. Die Oberfläche mit Wasser bestreichen und optional mit Kürbiskernen bestreuen.\n"
+            "Schritt 7: Abgedeckt nochmals 45 Minuten gehen lassen, bis der Teig knapp über den Rand der Form steht.\n"
+            "Schritt 8: Den Ofen auf 220°C (Ober-/Unterhitze) vorheizen. Eine feuerfeste Schale mit Wasser auf den Ofenboden stellen für Dampf.\n"
+            "Schritt 9: Die Oberfläche des Brots mit einem scharfen Messer 2–3 mal längs einschneiden (ca. 1 cm tief).\n"
+            "Schritt 10: Das Brot in den Ofen schieben. Nach 10 Minuten die Temperatur auf 200°C reduzieren. "
+            "Insgesamt 45 Minuten backen. Das Brot ist fertig, wenn die Kerntemperatur 96°C erreicht "
+            "oder es beim Klopfen auf die Unterseite hohl klingt."
+        ),
         "materials": [("Roggenmehl", "400g"), ("Dinkelmehl", "200g"), ("Hefe", "25g"), ("Salz", "15g"), ("Leinsamen", "30g"), ("Kürbiskerne", "20g")],
     },
     {
         "name": "Schokoladenkuchen",
         "price": 2.90,
-        "recipe": "Butter und Zucker cremig rühren. Eier einzeln unterrühren. "
-                  "Mehl, Backpulver und Schokoladenstückchen unterheben. "
-                  "Bei 180°C 35 Minuten backen. Abkühlen lassen und mit Puderzucker bestäuben.",
+        "recipe": (
+            "Schritt 1: Den Ofen auf 180°C (Ober-/Unterhitze) vorheizen. Eine Springform (26 cm) einfetten und mit etwas Mehl bestäuben.\n"
+            "Schritt 2: 150g weiche Butter und 200g Zucker in einer Schüssel mit dem Handrührgerät 3–4 Minuten cremig aufschlagen, "
+            "bis die Masse hell und luftig ist.\n"
+            "Schritt 3: 4 Eier einzeln unterrühren — jedes Ei 30 Sekunden einrühren, bevor das nächste hinzukommt. "
+            "So bleibt die Masse schön emulgiert.\n"
+            "Schritt 4: 300g Weizenmehl und 10g Backpulver in einer separaten Schüssel mischen und durch ein Sieb geben.\n"
+            "Schritt 5: Die Mehlmischung in zwei Portionen vorsichtig unter die Butter-Ei-Masse heben. "
+            "Mit einem Teigspatel von unten nach oben falten — nicht rühren, damit der Teig luftig bleibt.\n"
+            "Schritt 6: 200g Schokoladenstückchen unterheben, gleichmäßig im Teig verteilen.\n"
+            "Schritt 7: Den Teig in die vorbereitete Springform füllen und glatt streichen.\n"
+            "Schritt 8: Im vorgeheizten Ofen 35 Minuten backen. Nach 25 Minuten die Stäbchenprobe machen: "
+            "einen Holzspieß in die Mitte stecken — wenn kein feuchter Teig daran klebt, ist der Kuchen fertig. "
+            "Lieber 2–3 Minuten zu kurz als zu lang, damit er innen saftig bleibt.\n"
+            "Schritt 9: Den Kuchen in der Form 10 Minuten abkühlen lassen, dann auf ein Kuchengitter stürzen und vollständig auskühlen lassen.\n"
+            "Schritt 10: Vor dem Servieren 30g Puderzucker durch ein feines Sieb gleichmäßig über den Kuchen stäuben."
+        ),
         "materials": [("Weizenmehl", "300g"), ("Zucker", "200g"), ("Butter", "150g"), ("Eier", "4 Stück"), ("Schokoladenstückchen", "200g"), ("Backpulver", "10g"), ("Puderzucker", "30g")],
     },
     {
         "name": "Brezeln",
         "price": 1.20,
-        "recipe": "Mehl, Hefe, Salz und Wasser zu einem glatten Teig kneten. "
-                  "Teiglinge formen und in Natronlauge tauchen. "
-                  "Mit grobem Salz bestreuen. Bei 220°C 12-15 Minuten backen.",
+        "recipe": (
+            "Schritt 1: 500g Weizenmehl, 15g frische Hefe, 20g Salz, 30g weiche Butter und 300ml lauwarmes Wasser "
+            "in einer Schüssel vermengen.\n"
+            "Schritt 2: Den Teig 10 Minuten kräftig kneten, bis er glatt, elastisch und nicht mehr klebrig ist. "
+            "Der Teig muss den Fenstertest bestehen (dünn ausziehbar ohne zu reißen).\n"
+            "Schritt 3: Den Teig abdecken und 30 Minuten bei Raumtemperatur gehen lassen.\n"
+            "Schritt 4: Den Teig in gleichmäßige Portionen zu je 80g teilen (ergibt ca. 10–11 Brezeln).\n"
+            "Schritt 5: Jede Portion zu einem Strang von ca. 50–60 cm Länge rollen. Die Mitte dicker lassen, "
+            "die Enden dünner ausrollen. Den Strang zu einer Brezelform schlingen: "
+            "Enden überkreuzen, nochmals überkreuzen, dann auf den dickeren Bauch drücken.\n"
+            "Schritt 6: Natronlauge vorbereiten: 30g Natriumhydroxid (NaOH) vorsichtig in 1 Liter kaltem Wasser auflösen. "
+            "ACHTUNG: Immer NaOH ins Wasser geben, nie umgekehrt. Schutzhandschuhe tragen!\n"
+            "Schritt 7: Jede Brezel mit einer Schaumkelle 30 Sekunden in die Natronlauge tauchen, "
+            "abtropfen lassen und auf ein mit Backpapier belegtes Blech legen.\n"
+            "Schritt 8: Den dicken Bauch jeder Brezel mit einer Rasierklinge oder einem scharfen Messer einschneiden. "
+            "Großzügig grobes Salz auf die Brezeln streuen.\n"
+            "Schritt 9: Den Ofen auf 220°C (Ober-/Unterhitze) vorheizen.\n"
+            "Schritt 10: Die Brezeln 12–15 Minuten backen, bis sie eine tiefe, kastanienbraune Farbe haben. "
+            "Die Unterseite sollte fest und beim Klopfen hohl klingen."
+        ),
         "materials": [("Weizenmehl", "500g"), ("Hefe", "15g"), ("Salz", "20g"), ("Butter", "30g")],
     },
     {
         "name": "Mohnkuchen",
         "price": 2.50,
-        "recipe": "Hefeteig herstellen und ausrollen. Mohnfüllung aus gemahlenem Mohn, "
-                  "Milch, Zucker und Rosinen zubereiten. Auf Teig verteilen. "
-                  "Bei 180°C 40 Minuten backen.",
+        "recipe": (
+            "Schritt 1: Hefeteig ansetzen — 20g Hefe in 100ml lauwarmer Milch auflösen und 1 EL Zucker einrühren. "
+            "10 Minuten stehen lassen, bis die Hefe schäumt.\n"
+            "Schritt 2: 400g Weizenmehl, 50g Zucker, eine Prise Salz und 50g weiche Butter in eine Schüssel geben. "
+            "Die Hefemilch und ca. 50ml weitere lauwarme Milch dazugeben. 8 Minuten zu einem geschmeidigen Teig kneten.\n"
+            "Schritt 3: Den Teig abdecken und 45 Minuten gehen lassen, bis er sich verdoppelt hat.\n"
+            "Schritt 4: Mohnfüllung zubereiten — 200g gemahlenen Mohn, 100g Zucker, 200ml Milch und 50g weiche Butter "
+            "in einem Topf unter ständigem Rühren aufkochen. 5 Minuten bei niedriger Hitze köcheln lassen, "
+            "bis die Masse eindickt.\n"
+            "Schritt 5: Den Topf vom Herd nehmen. 50g Rosinen unterrühren und die Füllung auf Raumtemperatur abkühlen lassen.\n"
+            "Schritt 6: Den Hefeteig auf einer bemehlten Fläche zu einem Rechteck (ca. 40x30 cm) ausrollen.\n"
+            "Schritt 7: Die abgekühlte Mohnfüllung gleichmäßig auf dem Teig verteilen, dabei einen Rand von 2 cm frei lassen.\n"
+            "Schritt 8: Den Teig von der langen Seite her straff aufrollen. Die Rolle in eine gefettete Kastenform "
+            "oder auf ein Backblech legen (Naht nach unten). Abdecken und 20 Minuten gehen lassen.\n"
+            "Schritt 9: Den Ofen auf 180°C (Ober-/Unterhitze) vorheizen.\n"
+            "Schritt 10: Den Mohnkuchen 40 Minuten backen, bis die Oberfläche goldbraun ist. "
+            "Stäbchenprobe machen — der Teig um die Füllung herum muss durchgebacken sein. "
+            "In der Form 10 Minuten abkühlen lassen, dann herausnehmen."
+        ),
         "materials": [("Weizenmehl", "400g"), ("Mohn", "200g"), ("Zucker", "150g"), ("Milch", "200ml"), ("Butter", "100g"), ("Rosinen", "50g"), ("Hefe", "20g")],
     },
     {
         "name": "Mandelkuchen",
         "price": 3.20,
-        "recipe": "Butter und Zucker aufschlagen. Eier unterrühren. Mehl und gehobelte Mandeln unterheben. "
-                  "Mit Marzipanrohmasse verfeinern. Bei 175°C 45 Minuten backen.",
+        "recipe": (
+            "Schritt 1: Den Ofen auf 175°C (Ober-/Unterhitze) vorheizen. Eine Springform (26 cm) einfetten und den Boden mit Backpapier auslegen.\n"
+            "Schritt 2: 200g weiche Butter und 180g Zucker mit dem Handrührgerät 4–5 Minuten cremig aufschlagen, "
+            "bis die Masse sehr hell und voluminös ist.\n"
+            "Schritt 3: 4 Eier einzeln unterrühren. Jedes Ei ca. 30 Sekunden einarbeiten, bevor das nächste hinzukommt.\n"
+            "Schritt 4: 100g Marzipanrohmasse in kleine Stücke reißen und unter die Masse rühren, "
+            "bis keine Marzipanstücke mehr sichtbar sind.\n"
+            "Schritt 5: 250g Weizenmehl in einer separaten Schüssel mit einer Prise Salz mischen. "
+            "100g der gehobelten Mandeln untermischen.\n"
+            "Schritt 6: Die Mehl-Mandel-Mischung vorsichtig in zwei Portionen unter die Butter-Masse heben. "
+            "Mit einem Teigspatel falten, nicht rühren, damit die Luft im Teig bleibt.\n"
+            "Schritt 7: Den Teig in die vorbereitete Form füllen und glatt streichen. "
+            "Die restlichen 50g gehobelten Mandeln gleichmäßig auf der Oberfläche verteilen.\n"
+            "Schritt 8: Im vorgeheizten Ofen 45 Minuten backen. Nach 30 Minuten die Oberfläche prüfen — "
+            "wenn die Mandeln zu dunkel werden, den Kuchen locker mit Alufolie abdecken.\n"
+            "Schritt 9: Stäbchenprobe machen: ein Holzspieß in die Mitte stecken — "
+            "wenn er sauber herauskommt, ist der Kuchen fertig.\n"
+            "Schritt 10: Den Kuchen in der Form 15 Minuten abkühlen lassen, dann den Springformrand lösen "
+            "und den Kuchen auf ein Gitter stürzen. Vollständig auskühlen lassen vor dem Servieren."
+        ),
         "materials": [("Weizenmehl", "250g"), ("Mandeln gehobelt", "150g"), ("Marzipanrohmasse", "100g"), ("Zucker", "180g"), ("Butter", "200g"), ("Eier", "4 Stück")],
     },
     {
         "name": "Sesambrötchen",
         "price": 0.80,
-        "recipe": "Mehl, Hefe, Salz und Wasser verkneten. 30 Minuten gehen lassen. "
-                  "Brötchen formen, mit Wasser bestreichen und Sesam bestreuen. "
-                  "Bei 230°C 18 Minuten backen.",
+        "recipe": (
+            "Schritt 1: 500g Weizenmehl, 20g frische Hefe, 10g Salz und 20ml Sonnenblumenöl in eine Schüssel geben. "
+            "Ca. 300ml lauwarmes Wasser hinzufügen.\n"
+            "Schritt 2: Den Teig 8 Minuten kräftig kneten, bis er glatt und elastisch ist. "
+            "Er sollte sich leicht von der Schüsselwand lösen.\n"
+            "Schritt 3: Den Teig abdecken und 30 Minuten bei Raumtemperatur gehen lassen, bis er sich verdoppelt hat.\n"
+            "Schritt 4: Den Teig auf die Arbeitsfläche geben und in gleichmäßige Portionen zu je 60g teilen "
+            "(ergibt ca. 13–14 Brötchen).\n"
+            "Schritt 5: Jede Portion mit den Handflächen rund wirken: den Teig auf der leicht bemehlten Fläche "
+            "mit kreisenden Bewegungen zu einer straffen Kugel formen. Die Oberfläche soll glatt und gespannt sein.\n"
+            "Schritt 6: Die Brötchen auf ein mit Backpapier belegtes Blech setzen (ca. 5 cm Abstand). "
+            "Mit einem feuchten Tuch abdecken und 20 Minuten gehen lassen.\n"
+            "Schritt 7: Die Oberfläche jedes Brötchens mit Wasser bestreichen. "
+            "40g Sesam in eine flache Schale geben und jedes Brötchen kopfüber hineindrücken, sodass die Oberseite gleichmäßig bedeckt ist.\n"
+            "Schritt 8: Den Ofen auf 230°C (Ober-/Unterhitze) vorheizen. Eine feuerfeste Schale mit Wasser auf den Ofenboden stellen für Dampf.\n"
+            "Schritt 9: Die Brötchen in den Ofen schieben. Nach 5 Minuten die Ofentür kurz öffnen, um den Dampf abzulassen (Schwaden ablassen).\n"
+            "Schritt 10: Insgesamt 18 Minuten backen, bis die Brötchen goldbraun sind und der Sesam leicht geröstet duftet. "
+            "Auf einem Gitter auskühlen lassen."
+        ),
         "materials": [("Weizenmehl", "500g"), ("Hefe", "20g"), ("Salz", "10g"), ("Sesam", "40g"), ("Sonnenblumenöl", "20ml")],
     },
     {
         "name": "Vanillekipferl",
         "price": 4.50,
-        "recipe": "Mehl, Butter, Zucker und gemahlene Haselnüsse zu einem Mürbteig verarbeiten. "
-                  "Kipferl formen. Bei 180°C 10-12 Minuten backen. "
-                  "Warm in Vanillezucker wälzen.",
+        "recipe": (
+            "Schritt 1: 300g Weizenmehl, 80g Zucker und 100g gemahlene Haselnüsse in einer Schüssel vermischen.\n"
+            "Schritt 2: 200g kalte Butter in kleine Würfel schneiden und zur Mehlmischung geben. "
+            "Mit den Fingerspitzen oder der Küchenmaschine (Flachschläger) zu einem krümeligen Teig verarbeiten, "
+            "dann schnell zu einem glatten Mürbteig zusammenkneten. Nicht zu lange kneten, "
+            "sonst wird der Teig zu warm und die Kipferl werden hart.\n"
+            "Schritt 3: 10ml Vanilleextrakt unterkneten, bis gleichmäßig verteilt.\n"
+            "Schritt 4: Den Teig in Frischhaltefolie wickeln und 30 Minuten im Kühlschrank ruhen lassen. "
+            "Der Teig muss kalt, aber noch formbar sein.\n"
+            "Schritt 5: Den Ofen auf 180°C (Ober-/Unterhitze) vorheizen. Backbleche mit Backpapier auslegen.\n"
+            "Schritt 6: Vom Teig kleine Stücke abnehmen und zu fingerdicken Rollen von ca. 5 cm Länge formen. "
+            "Die Enden etwas dünner rollen als die Mitte.\n"
+            "Schritt 7: Jede Rolle zu einem Halbmond (Kipferl) biegen und auf das Blech legen. "
+            "Ca. 2 cm Abstand zwischen den Kipferln lassen — sie laufen nur minimal auseinander.\n"
+            "Schritt 8: 10–12 Minuten backen. WICHTIG: Die Kipferl sollen NICHT braun werden! "
+            "Sie sind fertig, wenn die Unterseite ganz leicht goldgelb ist und die Oberseite noch blass. "
+            "Lieber etwas kürzer backen — die Kipferl härten beim Abkühlen noch nach.\n"
+            "Schritt 9: Vanillezucker vorbereiten: 50g Puderzucker mit dem restlichen Vanilleextrakt gut vermischen.\n"
+            "Schritt 10: Die Kipferl noch WARM (nicht heiß, nicht kalt!) vorsichtig im Vanillezucker wälzen. "
+            "Warme Kipferl nehmen den Zucker am besten auf. Vorsicht: frisch gebackene Kipferl sind sehr zerbrechlich."
+        ),
         "materials": [("Weizenmehl", "300g"), ("Butter", "200g"), ("Zucker", "80g"), ("Haselnüsse gemahlen", "100g"), ("Vanilleextrakt", "10ml"), ("Puderzucker", "50g")],
     },
 ]
@@ -535,7 +665,7 @@ DOW_PRODUCTION_MULT = {
     3: 1.0,   # Thursday
     4: 1.15,  # Friday
     5: 1.40,  # Saturday
-    6: 0.70,  # Sunday
+    6: 1.25,  # Sunday — also a strong weekend day
 }
 
 # Base sell-through rates (fraction of production that sells)
@@ -558,7 +688,7 @@ DOW_SALES_MULT = {
     3: 1.0,
     4: 1.05,  # Friday
     5: 1.10,  # Saturday
-    6: 0.95,  # Sunday
+    6: 1.08,  # Sunday — weekend foot traffic
 }
 
 # ---------------------------------------------------------------------------
@@ -690,6 +820,7 @@ def create_tables(cursor: sqlite3.Cursor) -> None:
             amount TEXT NOT NULL,
             amount_value REAL,
             amount_unit TEXT,
+            quantity INTEGER NOT NULL DEFAULT 1,
             price REAL NOT NULL,
             purchase_date TEXT NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -1056,13 +1187,31 @@ def seed_sales(cursor: sqlite3.Cursor) -> None:
     print(f"  sales: {total} rows")
 
 
+def _delivery_days(n_days: int) -> list[str]:
+    """Build a list of delivery dates (Mon & Thu) within the history window."""
+    days = []
+    for d in range(n_days + 1):
+        dt = (TODAY - timedelta(days=d)).date()
+        if dt.weekday() in (0, 3):  # Monday=0, Thursday=3
+            days.append(dt.isoformat())
+    return days
+
+
 def seed_raw_purchases(
     cursor: sqlite3.Cursor,
     total_usage: dict[str, float],
 ) -> dict[str, float]:
-    """Seed purchases coherent with cooking plan usage."""
+    """Seed purchases coherent with cooking plan usage.
+
+    Each material gets at most one row per delivery day. The quantity
+    column tracks how many units were bought that day.
+    """
     cursor.execute("SELECT id, item_name FROM materials")
     mat_map = {row[1]: row[0] for row in cursor.fetchall()}
+
+    delivery_dates = _delivery_days(HISTORY_DAYS)
+    if not delivery_dates:
+        delivery_dates = [TODAY.date().isoformat()]
 
     total_purchased: dict[str, float] = {}
     total_rows = 0
@@ -1083,20 +1232,25 @@ def seed_raw_purchases(
 
         cover_ratio = random.uniform(*PURCHASE_COVER_RANGE)
         target_purchased = expected_base * cover_ratio
-        n_orders = max(1, round(target_purchased / order_base_val))
+        n_units = max(1, round(target_purchased / order_base_val))
+
+        # Distribute units across delivery days (one row per day)
+        day_quantities: dict[str, int] = {}
+        for _ in range(n_units):
+            d = random.choice(delivery_dates)
+            day_quantities[d] = day_quantities.get(d, 0) + 1
 
         purchased_total = 0.0
-        for _ in range(n_orders):
-            days_back = random.randint(0, HISTORY_DAYS)
-            purchase_date = (TODAY - timedelta(days=days_back)).date().isoformat()
-            price = round(order_base_price * random.uniform(0.90, 1.10), 2)
+        for purchase_date, qty in day_quantities.items():
+            unit_price = round(order_base_price * random.uniform(0.90, 1.10), 2)
+            total_price = round(unit_price * qty, 2)
             cursor.execute(
                 "INSERT INTO raw_purchases "
-                "(material_id, amount, amount_value, amount_unit, price, purchase_date) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (mid, order_text, order_base_val, order_base_unit, price, purchase_date),
+                "(material_id, amount, amount_value, amount_unit, quantity, price, purchase_date) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (mid, order_text, order_base_val, order_base_unit, qty, total_price, purchase_date),
             )
-            purchased_total += order_base_val
+            purchased_total += order_base_val * qty
             total_rows += 1
 
         total_purchased[mat_name] = purchased_total
@@ -1107,23 +1261,22 @@ def seed_raw_purchases(
         template = RAW_PURCHASE_TEMPLATES.get(mat_name)
         if not template:
             continue
-        for _ in range(random.randint(1, 2)):
-            order_text, order_base_price = template
-            order_val, order_unit = parse_amount(order_text)
-            order_base_val, order_base_unit = to_base_units(order_val, order_unit)
-            days_back = random.randint(0, HISTORY_DAYS)
-            purchase_date = (TODAY - timedelta(days=days_back)).date().isoformat()
-            price = round(order_base_price * random.uniform(0.90, 1.10), 2)
-            cursor.execute(
-                "INSERT INTO raw_purchases "
-                "(material_id, amount, amount_value, amount_unit, price, purchase_date) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (mat_map[mat_name], order_text, order_base_val, order_base_unit, price, purchase_date),
-            )
-            total_purchased[mat_name] = total_purchased.get(mat_name, 0.0) + order_base_val
-            total_rows += 1
+        order_text, order_base_price = template
+        order_val, order_unit = parse_amount(order_text)
+        order_base_val, order_base_unit = to_base_units(order_val, order_unit)
+        purchase_date = random.choice(delivery_dates)
+        qty = random.randint(1, 2)
+        price = round(order_base_price * random.uniform(0.90, 1.10) * qty, 2)
+        cursor.execute(
+            "INSERT INTO raw_purchases "
+            "(material_id, amount, amount_value, amount_unit, quantity, price, purchase_date) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (mat_map[mat_name], order_text, order_base_val, order_base_unit, qty, price, purchase_date),
+        )
+        total_purchased[mat_name] = total_purchased.get(mat_name, 0.0) + order_base_val * qty
+        total_rows += 1
 
-    print(f"  raw_purchases: {total_rows} rows ({HISTORY_DAYS} days)")
+    print(f"  raw_purchases: {total_rows} rows ({len(delivery_dates)} delivery days)")
     return total_purchased
 
 

@@ -79,6 +79,35 @@ async def handle_tool_call(
     elif function_name == "get_open_tickets":
         tickets = await asyncio.to_thread(db.get_open_tickets)
         result = {"tickets": tickets}
+    elif function_name == "get_recipe":
+        product = await asyncio.to_thread(
+            db.get_baked_good_by_name, args["product_name"]
+        )
+        if product:
+            result = {
+                "product_name": product["name"],
+                "recipe": product["recipe"],
+                "materials": product["materials"],
+            }
+        else:
+            result = {
+                "status": "not_found",
+                "message": f"Kein Produkt mit dem Namen '{args['product_name']}' gefunden.",
+            }
+    elif function_name == "get_recipe_ingredients":
+        product = await asyncio.to_thread(
+            db.get_baked_good_by_name, args["product_name"]
+        )
+        if product:
+            result = {
+                "product_name": product["name"],
+                "materials": product["materials"],
+            }
+        else:
+            result = {
+                "status": "not_found",
+                "message": f"Kein Produkt mit dem Namen '{args['product_name']}' gefunden.",
+            }
     else:
         result = {"status": "error", "message": f"Unknown tool: {function_name}"}
 

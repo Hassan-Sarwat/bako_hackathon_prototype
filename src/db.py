@@ -192,6 +192,7 @@ def init_db() -> None:
             amount TEXT NOT NULL,
             price REAL NOT NULL,
             purchase_date TEXT NOT NULL,
+            quantity INTEGER DEFAULT 1,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE
         );
@@ -262,6 +263,8 @@ def init_db() -> None:
 
     # --- Migration: add amount_value / amount_unit columns ----------------
     _migrate_amount_columns(cursor)
+    # --- Migration: add quantity column to raw_purchases ------------------
+    _migrate_quantity_column(cursor)
 
     conn.commit()
     conn.close()
@@ -285,6 +288,13 @@ def _migrate_amount_columns(cursor: sqlite3.Cursor) -> None:
                 f"UPDATE {table} SET amount_value = ?, amount_unit = ? WHERE id = ?",
                 (val, unit, row["id"]),
             )
+
+
+def _migrate_quantity_column(cursor: sqlite3.Cursor) -> None:
+    """Add quantity column to raw_purchases if it doesn't exist."""
+    cols = {row[1] for row in cursor.execute("PRAGMA table_info(raw_purchases)")}
+    if "quantity" not in cols:
+        cursor.execute("ALTER TABLE raw_purchases ADD COLUMN quantity INTEGER DEFAULT 1")
 
 
 def get_all_checklist_items(checklist_type: str) -> list[dict]:
@@ -1049,6 +1059,43 @@ def get_baked_good(product_id: int) -> dict | None:
     return product
 
 
+def get_baked_good_by_name(product_name: str) -> dict | None:
+    """Get a baked good by name (case-insensitive partial match), including recipe and materials."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, name, recipe, price, created_at FROM baked_goods WHERE LOWER(name) LIKE LOWER(?)",
+        (f"%{product_name}%",),
+    )
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None
+    product = {
+        "id": row["id"],
+        "name": row["name"],
+        "recipe": row["recipe"],
+        "price": row["price"],
+        "created_at": row["created_at"],
+    }
+    cursor.execute(
+        "SELECT pm.id, pm.material_id, m.item_name AS material_name, pm.amount "
+        "FROM product_materials pm JOIN materials m ON pm.material_id = m.id "
+        "WHERE pm.product_id = ? ORDER BY m.item_name",
+        (row["id"],),
+    )
+    product["materials"] = [
+        {
+            "material_id": r["material_id"],
+            "material_name": r["material_name"],
+            "amount": r["amount"],
+        }
+        for r in cursor.fetchall()
+    ]
+    conn.close()
+    return product
+
+
 def create_baked_good(name: str, price: float, recipe: str | None = None) -> dict:
     """Create a new baked good (product)."""
     conn = get_connection()
@@ -1156,7 +1203,7 @@ def get_raw_purchases(
     cursor = conn.cursor()
     query = (
         "SELECT rp.id, rp.material_id, m.item_name AS material_name, "
-        "rp.amount, rp.price, rp.purchase_date, rp.created_at "
+        "rp.amount, rp.amount_value, rp.amount_unit, rp.quantity, rp.price, rp.purchase_date, rp.created_at "
         "FROM raw_purchases rp JOIN materials m ON rp.material_id = m.id"
     )
     conditions = []
@@ -1180,6 +1227,9 @@ def get_raw_purchases(
             "material_id": r["material_id"],
             "material_name": r["material_name"],
             "amount": r["amount"],
+            "amount_value": r["amount_value"],
+            "amount_unit": r["amount_unit"],
+            "quantity": r["quantity"] or 1,
             "price": r["price"],
             "purchase_date": r["purchase_date"],
             "created_at": r["created_at"],
@@ -1191,7 +1241,8 @@ def get_raw_purchases(
 
 
 def create_raw_purchase(
-    material_id: int, amount: str, price: float, purchase_date: str
+    material_id: int, amount: str, price: float, purchase_date: str,
+    quantity: int = 1,
 ) -> dict:
     """Create a new raw material purchase."""
     val, unit = parse_amount(amount)
@@ -1200,9 +1251,9 @@ def create_raw_purchase(
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO raw_purchases (material_id, amount, price, purchase_date, amount_value, amount_unit) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (material_id, amount, price, purchase_date, val, unit),
+            "INSERT INTO raw_purchases (material_id, amount, price, purchase_date, amount_value, amount_unit, quantity) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (material_id, amount, price, purchase_date, val, unit, quantity),
         )
         purchase_id = cursor.lastrowid
         conn.commit()
@@ -1215,7 +1266,7 @@ def create_raw_purchase(
 
 def update_raw_purchase(purchase_id: int, **fields) -> dict:
     """Update a raw purchase. Pass only the fields to change."""
-    allowed = {"material_id", "amount", "price", "purchase_date"}
+    allowed = {"material_id", "amount", "price", "purchase_date", "quantity"}
     updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
     if not updates:
         return {"status": "error", "message": "No valid fields to update"}
@@ -1365,7 +1416,7 @@ def get_material_usage_analysis(start_date: str, end_date: str) -> list[dict]:
 
     # 2. Purchases in the same date range
     cursor.execute(
-        "SELECT material_id, amount_value, amount_unit, price "
+        "SELECT material_id, amount_value, amount_unit, COALESCE(quantity, 1) AS quantity, price "
         "FROM raw_purchases "
         "WHERE purchase_date BETWEEN ? AND ? AND amount_value IS NOT NULL",
         (start_date, end_date),
@@ -1375,7 +1426,7 @@ def get_material_usage_analysis(start_date: str, end_date: str) -> list[dict]:
         mid = row["material_id"]
         if mid not in purchases:
             purchases[mid] = {"total_amount": 0.0, "total_price": 0.0, "unit": row["amount_unit"] or ""}
-        purchases[mid]["total_amount"] += row["amount_value"]
+        purchases[mid]["total_amount"] += row["amount_value"] * row["quantity"]
         purchases[mid]["total_price"] += row["price"]
 
     # 3. Current inventory (in base units — same unit as usage/purchases)
@@ -1781,12 +1832,35 @@ def get_inventory_with_units() -> list[dict]:
     )
     unit_map = {row["material_id"]: row["amount_unit"] for row in cursor.fetchall()}
 
+    # Get last purchase price for each material
+    cursor.execute("""
+        SELECT material_id, price, amount, amount_value, amount_unit,
+               COALESCE(quantity, 1) AS quantity, purchase_date
+        FROM (
+            SELECT *, ROW_NUMBER() OVER (
+                PARTITION BY material_id ORDER BY purchase_date DESC, id DESC
+            ) AS rn
+            FROM raw_purchases
+        ) WHERE rn = 1
+    """)
+    last_price_map = {}
+    for row in cursor.fetchall():
+        last_price_map[row["material_id"]] = {
+            "price": row["price"],
+            "amount": row["amount"],
+            "amount_value": row["amount_value"],
+            "amount_unit": row["amount_unit"],
+            "quantity": row["quantity"],
+            "purchase_date": row["purchase_date"],
+        }
+
     cursor.execute(
         "SELECT id, item_name, count, updated_at, updated_by FROM materials ORDER BY item_name"
     )
     items = []
     for row in cursor.fetchall():
         unit = unit_map.get(row["id"], "")
+        lp = last_price_map.get(row["id"])
         items.append({
             "id": row["id"],
             "item_name": row["item_name"],
@@ -1794,6 +1868,9 @@ def get_inventory_with_units() -> list[dict]:
             "unit": unit,
             "updated_at": row["updated_at"],
             "updated_by": row["updated_by"],
+            "last_purchase_price": lp["price"] if lp else None,
+            "last_purchase_amount": lp["amount"] if lp else None,
+            "last_purchase_date": lp["purchase_date"] if lp else None,
         })
     conn.close()
     return items

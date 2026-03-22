@@ -46,7 +46,7 @@
 .inventory-header,
 .inventory-row {
   display: grid;
-  grid-template-columns: 2fr 70px 80px 100px 80px;
+  grid-template-columns: 2fr 70px 80px 140px 100px 80px;
   align-items: center;
   padding: 12px 20px;
   gap: 12px;
@@ -106,6 +106,18 @@
 .item-time {
   color: var(--text);
   font-size: 12px;
+}
+
+.item-last-price {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.price-amount {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text);
 }
 
 /* Material needs section */
@@ -191,7 +203,7 @@
 @media (max-width: 1024px) {
   .inventory-header,
   .inventory-row {
-    grid-template-columns: 2fr 60px 70px 80px;
+    grid-template-columns: 2fr 60px 70px 120px 80px;
   }
   .col-time {
     display: none;
@@ -205,4 +217,5 @@
     padding: 10px 14px;
   }
   .item-staff { display: none; }
+  .col-price { display: none; }
 }

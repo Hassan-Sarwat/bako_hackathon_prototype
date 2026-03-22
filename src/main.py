@@ -106,6 +106,7 @@ class RawPurchaseRequest(BaseModel):
     amount: str
     price: float
     purchase_date: str
+    quantity: int = 1
 
 
 class RawPurchaseUpdateRequest(BaseModel):
@@ -113,6 +114,7 @@ class RawPurchaseUpdateRequest(BaseModel):
     amount: str | None = None
     price: float | None = None
     purchase_date: str | None = None
+    quantity: int | None = None
 
 
 class CookingPlanRequest(BaseModel):
@@ -427,6 +429,7 @@ async def create_purchase(body: RawPurchaseRequest):
         amount=body.amount,
         price=body.price,
         purchase_date=body.purchase_date,
+        quantity=body.quantity,
     )
     if result.get("status") == "error":
         raise HTTPException(status_code=400, detail=result["message"])
@@ -442,6 +445,7 @@ async def update_purchase(purchase_id: int, body: RawPurchaseUpdateRequest):
         amount=body.amount,
         price=body.price,
         purchase_date=body.purchase_date,
+        quantity=body.quantity,
     )
     if result.get("status") == "error":
         raise HTTPException(status_code=404, detail=result["message"])
@@ -518,6 +522,9 @@ async def get_inventory():
             "unit": m["unit"],
             "logged_by": m["updated_by"],
             "logged_at": m["updated_at"],
+            "last_purchase_price": m["last_purchase_price"],
+            "last_purchase_amount": m["last_purchase_amount"],
+            "last_purchase_date": m["last_purchase_date"],
         }
         for m in materials
     ]

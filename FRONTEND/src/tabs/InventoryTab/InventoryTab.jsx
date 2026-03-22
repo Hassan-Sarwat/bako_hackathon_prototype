@@ -116,6 +116,7 @@ export default function InventoryTab() {
           <span>Ingredient</span>
           <span>Stock</span>
           <span>Status</span>
+          <span className="col-price">Last Price</span>
           <span>Logged by</span>
           <span className="col-time">Date / Time</span>
         </div>
@@ -127,6 +128,11 @@ export default function InventoryTab() {
             </span>
             <span className={`item-status ${stockClass(item.count, item.unit)}`}>
               {stockLabel(item.count, item.unit)}
+            </span>
+            <span className="item-last-price col-price">
+              {item.last_purchase_price != null
+                ? <>{item.last_purchase_price.toFixed(2)} <span className="price-amount">({item.last_purchase_amount})</span></>
+                : '—'}
             </span>
             <span className="item-staff">{item.logged_by ?? '—'}</span>
             <span className="item-time col-time">{formatDateTime(item.logged_at)}</span>

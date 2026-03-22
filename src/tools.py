@@ -245,6 +245,47 @@ end_session_decl = types.FunctionDeclaration(
     ),
 )
 
+# Tool: Rezept abrufen
+get_recipe_decl = types.FunctionDeclaration(
+    name="get_recipe",
+    description=(
+        "Das vollständige Rezept eines Produkts anhand des Namens abrufen. "
+        "Gibt die Schritt-für-Schritt-Anleitung und alle Zutaten mit Mengenangaben zurück. "
+        "Verwende dies, wenn ein Mitarbeiter nach dem Rezept, einem bestimmten Schritt, "
+        "Backtemperaturen, Zeiten oder Techniken fragt."
+    ),
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={
+            "product_name": types.Schema(
+                type="STRING",
+                description="Der Name des Produkts (z.B. 'Croissant', 'Brezeln', 'Vollkornbrot')",
+            ),
+        },
+        required=["product_name"],
+    ),
+)
+
+# Tool: Zutaten eines Rezepts abrufen
+get_recipe_ingredients_decl = types.FunctionDeclaration(
+    name="get_recipe_ingredients",
+    description=(
+        "Die Zutatenliste mit genauen Mengenangaben für ein Produkt abrufen. "
+        "Verwende dies, wenn ein Mitarbeiter nur nach Zutaten oder Mengen fragt, "
+        "z.B. 'Wie viel Mehl brauche ich für Croissants?' oder 'Was sind die Zutaten für Brezeln?'"
+    ),
+    parameters=types.Schema(
+        type="OBJECT",
+        properties={
+            "product_name": types.Schema(
+                type="STRING",
+                description="Der Name des Produkts (z.B. 'Croissant', 'Brezeln', 'Vollkornbrot')",
+            ),
+        },
+        required=["product_name"],
+    ),
+)
+
 # Alle Tools gebündelt für die Gemini-Konfiguration
 all_tools = types.Tool(
     function_declarations=[
@@ -262,6 +303,8 @@ all_tools = types.Tool(
         get_checklist_summary_decl,
         raise_ticket_decl,
         get_open_tickets_decl,
+        get_recipe_decl,
+        get_recipe_ingredients_decl,
         end_session_decl,
     ]
 )
