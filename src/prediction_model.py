@@ -26,16 +26,18 @@ MODEL_PATH = Path(__file__).parent.parent / "model.pkl"
 # ---------------------------------------------------------------------------
 # German holidays (Bavaria) — extend as needed
 # ---------------------------------------------------------------------------
-GERMAN_HOLIDAYS = {
-    "2025-12-24", "2025-12-25", "2025-12-26",
-    "2025-12-31", "2026-01-01", "2026-01-06",
-    "2026-02-16", "2026-02-17",
-    "2026-04-03", "2026-04-06",
-    "2026-05-01", "2026-05-14",
-    "2026-05-25", "2026-06-04",
-    "2026-08-15", "2026-10-03",
-    "2026-11-01", "2026-12-25", "2026-12-26",
-}
+def _build_holidays() -> set[str]:
+    """Build a holiday set covering the current and adjacent years."""
+    holidays = set()
+    for y in (date.today().year - 1, date.today().year, date.today().year + 1):
+        holidays.update({
+            f"{y}-01-01", f"{y}-01-06", f"{y}-05-01",
+            f"{y}-08-15", f"{y}-10-03", f"{y}-11-01",
+            f"{y}-12-24", f"{y}-12-25", f"{y}-12-26", f"{y}-12-31",
+        })
+    return holidays
+
+GERMAN_HOLIDAYS = _build_holidays()
 
 
 def _weather_code_group(code: int | None) -> int:

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchCookingPlans, createCookingPlan, updateCookingPlan, deleteCookingPlan, fetchBakedGoods } from '../../api'
+import { fetchCookingPlans, createCookingPlan, updateCookingPlan, deleteCookingPlan, fetchBakedGoods, fetchDailyPlan } from '../../api'
 import './CookingPlanTab.css'
 
 function todayISO() {
@@ -9,6 +9,7 @@ function todayISO() {
 export default function CookingPlanTab() {
   const [items, setItems] = useState([])
   const [products, setProducts] = useState([])
+  const [predictions, setPredictions] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [date, setDate] = useState(todayISO())
@@ -18,8 +19,14 @@ export default function CookingPlanTab() {
 
   function load() {
     setLoading(true)
-    Promise.all([fetchCookingPlans(date), fetchBakedGoods()])
-      .then(([plans, prods]) => { setItems(plans); setProducts(prods) })
+    Promise.all([fetchCookingPlans(date), fetchBakedGoods(), fetchDailyPlan(date).catch(() => [])])
+      .then(([plans, prods, preds]) => {
+        setItems(plans)
+        setProducts(prods)
+        const predMap = {}
+        for (const p of preds) predMap[p.product_id] = p
+        setPredictions(predMap)
+      })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
   }
@@ -67,6 +74,7 @@ export default function CookingPlanTab() {
   if (error) return <div className="tab-status tab-status--error">Error: {error}</div>
 
   const totalBaked = items.reduce((sum, i) => sum + i.quantity, 0)
+  const hasPredictions = Object.keys(predictions).length > 0
 
   return (
     <div className="cooking-plan-tab">
@@ -106,21 +114,40 @@ export default function CookingPlanTab() {
         <div className="cooking-header">
           <span>Product</span>
           <span>Quantity</span>
+          {hasPredictions && <span>Recommended</span>}
           <span>Actions</span>
         </div>
         {items.length === 0 && (
           <div className="cooking-empty">No cooking plan for this date</div>
         )}
-        {items.map(item => (
-          <div key={item.id} className="cooking-row">
-            <span className="item-name">{item.product_name}</span>
-            <span className="item-quantity">{item.quantity}</span>
-            <span className="row-actions">
-              <button className="btn-edit" onClick={() => startEdit(item)}>Edit</button>
-              <button className="btn-delete" onClick={() => handleDelete(item.id)}>Delete</button>
-            </span>
-          </div>
-        ))}
+        {items.map(item => {
+          const pred = predictions[item.product_id]
+          const diff = pred ? item.quantity - pred.recommended_production : null
+          return (
+            <div key={item.id} className="cooking-row" style={hasPredictions ? { gridTemplateColumns: '2fr 100px 140px 120px' } : undefined}>
+              <span className="item-name">{item.product_name}</span>
+              <span className="item-quantity">{item.quantity}</span>
+              {hasPredictions && (
+                <span className="item-recommended">
+                  {pred ? (
+                    <>
+                      {pred.recommended_production}
+                      {diff !== null && diff !== 0 && (
+                        <span className={`rec-diff ${diff > 0 ? 'rec-diff--over' : 'rec-diff--under'}`}>
+                          {diff > 0 ? `+${diff}` : diff}
+                        </span>
+                      )}
+                    </>
+                  ) : '—'}
+                </span>
+              )}
+              <span className="row-actions">
+                <button className="btn-edit" onClick={() => startEdit(item)}>Edit</button>
+                <button className="btn-delete" onClick={() => handleDelete(item.id)}>Delete</button>
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

@@ -251,3 +251,9 @@ export function fetchDailyPlan(date) {
 export function fetchProductHistory(productId) {
   return apiFetch(`/api/predictions/product/${productId}/history`)
 }
+
+// ── Material Needs ──────────────────────────────────────────────────────────
+
+export function fetchMaterialNeeds(days = 3) {
+  return apiFetch(`/api/inventory/material-needs?days=${days}`)
+}

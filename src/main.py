@@ -508,19 +508,27 @@ async def delete_cooking_plan(plan_id: int):
 # ---------------------------------------------------------------------------
 @app.get("/api/inventory")
 async def get_inventory():
-    """Get all inventory items (alias of materials, with dashboard-friendly field names)."""
-    materials = db.get_materials()
+    """Get all inventory items with unit info."""
+    materials = db.get_inventory_with_units()
     items = [
         {
             "id": m["id"],
             "item_name": m["item_name"],
             "count": m["count"],
+            "unit": m["unit"],
             "logged_by": m["updated_by"],
             "logged_at": m["updated_at"],
         }
         for m in materials
     ]
     return {"items": items}
+
+
+@app.get("/api/inventory/material-needs")
+async def get_material_needs(days: int = 3):
+    """Calculate material needs for the next N days based on predictions."""
+    needs = db.get_material_needs(days)
+    return {"needs": needs, "days": days}
 
 
 # ---------------------------------------------------------------------------

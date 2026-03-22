@@ -1704,16 +1704,96 @@ def get_cached_weather(start_date: str, end_date: str) -> list[dict]:
     return items
 
 
-def get_baked_good(product_id: int) -> dict | None:
-    """Get a single baked good by ID."""
+def get_material_needs(days: int = 3) -> list[dict]:
+    """Calculate material needs for the next N days based on predictions.
+
+    Compares predicted production requirements against current inventory
+    to identify shortages.
+    """
     conn = get_connection()
     cursor = conn.cursor()
+    today = date.today().isoformat()
+    end = (date.today() + timedelta(days=days - 1)).isoformat()
+
+    # Get predictions for the date range
     cursor.execute(
-        "SELECT id, name, price, recipe FROM baked_goods WHERE id = ?",
-        (product_id,),
+        "SELECT p.product_id, p.recommended_production, p.prediction_date "
+        "FROM predictions p WHERE p.prediction_date BETWEEN ? AND ?",
+        (today, end),
     )
-    row = cursor.fetchone()
+    pred_rows = cursor.fetchall()
+
+    # Get recipe: product_id -> [(material_id, material_name, amount_value, amount_unit)]
+    cursor.execute(
+        "SELECT pm.product_id, pm.material_id, m.item_name, "
+        "pm.amount_value, pm.amount_unit "
+        "FROM product_materials pm JOIN materials m ON pm.material_id = m.id"
+    )
+    recipe_map: dict[int, list[tuple[int, str, float, str]]] = {}
+    for row in cursor.fetchall():
+        recipe_map.setdefault(row["product_id"], []).append(
+            (row["material_id"], row["item_name"], row["amount_value"] or 0.0, row["amount_unit"] or "")
+        )
+
+    # Accumulate material needs
+    needs: dict[int, dict] = {}
+    for row in pred_rows:
+        pid = row["product_id"]
+        qty = row["recommended_production"]
+        for mat_id, mat_name, per_unit, unit in recipe_map.get(pid, []):
+            if mat_id not in needs:
+                needs[mat_id] = {"material_id": mat_id, "material_name": mat_name, "needed": 0.0, "unit": unit}
+            needs[mat_id]["needed"] += per_unit * qty
+
+    # Get current inventory
+    cursor.execute("SELECT id, item_name, count FROM materials")
+    inventory = {row["id"]: row["count"] for row in cursor.fetchall()}
+
     conn.close()
-    if row:
-        return {"id": row["id"], "name": row["name"], "price": row["price"], "recipe": row["recipe"]}
-    return None
+
+    result = []
+    for mat_id, info in sorted(needs.items(), key=lambda x: x[1]["material_name"]):
+        current = inventory.get(mat_id, 0)
+        needed = info["needed"]
+        shortage = max(0, needed - current)
+        result.append({
+            "material_id": mat_id,
+            "material_name": info["material_name"],
+            "unit": info["unit"],
+            "needed": round(needed, 1),
+            "current_stock": current,
+            "shortage": round(shortage, 1),
+            "has_shortage": shortage > 0,
+        })
+
+    return result
+
+
+def get_inventory_with_units() -> list[dict]:
+    """Get all materials with their current counts and unit info."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Get the unit for each material from product_materials
+    cursor.execute(
+        "SELECT material_id, amount_unit FROM product_materials "
+        "WHERE amount_unit IS NOT NULL GROUP BY material_id"
+    )
+    unit_map = {row["material_id"]: row["amount_unit"] for row in cursor.fetchall()}
+
+    cursor.execute(
+        "SELECT id, item_name, count, updated_at, updated_by FROM materials ORDER BY item_name"
+    )
+    items = []
+    for row in cursor.fetchall():
+        unit = unit_map.get(row["id"], "")
+        items.append({
+            "id": row["id"],
+            "item_name": row["item_name"],
+            "count": row["count"],
+            "unit": unit,
+            "updated_at": row["updated_at"],
+            "updated_by": row["updated_by"],
+        })
+    conn.close()
+    return items

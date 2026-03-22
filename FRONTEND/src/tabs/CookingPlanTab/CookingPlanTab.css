@@ -92,6 +92,31 @@
   color: var(--text-h);
 }
 
+.item-recommended {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.rec-diff {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rec-diff--over {
+  background: var(--bk-stock-ok-bg, #e8f8ef);
+  color: var(--bk-stock-ok, #27ae60);
+}
+
+.rec-diff--under {
+  background: var(--bk-stock-critical-bg, #fde8e8);
+  color: var(--bk-stock-critical, #c0392b);
+}
+
 .btn-add {
   padding: 6px 16px;
   border: none;

@@ -61,32 +61,47 @@ def to_base_units(value: float, unit: str) -> tuple[float, str]:
 
 
 # ---------------------------------------------------------------------------
-# Reference date: 21.03.2026
+# Reference date: today (dynamic)
 # ---------------------------------------------------------------------------
-TODAY = datetime(2026, 3, 21)
-TODAY_DATE = TODAY.date().isoformat()  # "2026-03-21"
+TODAY = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+TODAY_DATE = TODAY.date().isoformat()
 HISTORY_DAYS = 90  # go back to Dec 21, 2025
 
 # ---------------------------------------------------------------------------
-# German holidays (Bavaria) relevant for our date range
+# German holidays (Bavaria) — generated for years around TODAY
 # ---------------------------------------------------------------------------
-GERMAN_HOLIDAYS = {
-    "2025-12-24": "Heiligabend",
-    "2025-12-25": "1. Weihnachtsfeiertag",
-    "2025-12-26": "2. Weihnachtsfeiertag",
-    "2025-12-31": "Silvester",
-    "2026-01-01": "Neujahr",
-    "2026-01-06": "Heilige Drei Könige",
-    "2026-02-16": "Rosenmontag",
-    "2026-02-17": "Faschingsdienstag",
-}
+def _build_holidays() -> dict[str, str]:
+    """Build a holiday map covering the year before and after TODAY."""
+    holidays = {}
+    for y in (TODAY.year - 1, TODAY.year, TODAY.year + 1):
+        holidays.update({
+            f"{y}-01-01": "Neujahr",
+            f"{y}-01-06": "Heilige Drei Könige",
+            f"{y}-05-01": "Tag der Arbeit",
+            f"{y}-08-15": "Mariä Himmelfahrt",
+            f"{y}-10-03": "Tag der Deutschen Einheit",
+            f"{y}-11-01": "Allerheiligen",
+            f"{y}-12-24": "Heiligabend",
+            f"{y}-12-25": "1. Weihnachtsfeiertag",
+            f"{y}-12-26": "2. Weihnachtsfeiertag",
+            f"{y}-12-31": "Silvester",
+        })
+    return holidays
 
-# Christmas season: Dec 21-26
-CHRISTMAS_SEASON = {f"2025-12-{d:02d}" for d in range(21, 27)}
-# NYE/New Year: Dec 30 - Jan 2
-NYE_SEASON = {"2025-12-30", "2025-12-31", "2026-01-01", "2026-01-02"}
-# Fasching: Feb 14-17
-FASCHING_SEASON = {f"2026-02-{d:02d}" for d in range(14, 18)}
+GERMAN_HOLIDAYS = _build_holidays()
+
+def _build_seasons() -> tuple[set[str], set[str], set[str]]:
+    """Build Christmas, NYE, and Fasching season date sets."""
+    christmas = set()
+    nye = set()
+    fasching = set()
+    for y in (TODAY.year - 1, TODAY.year, TODAY.year + 1):
+        christmas.update(f"{y}-12-{d:02d}" for d in range(21, 27))
+        nye.update({f"{y}-12-30", f"{y}-12-31", f"{y+1}-01-01", f"{y+1}-01-02"})
+        fasching.update(f"{y}-02-{d:02d}" for d in range(14, 18))
+    return christmas, nye, fasching
+
+CHRISTMAS_SEASON, NYE_SEASON, FASCHING_SEASON = _build_seasons()
 
 
 def is_holiday(d: date_type) -> bool:
